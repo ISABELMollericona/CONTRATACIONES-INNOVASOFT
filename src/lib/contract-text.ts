@@ -31,6 +31,7 @@ export type ContractTextInput = {
     warrantyMonths: number;
     maintenanceAnnual: number;
   };
+  siatOption: "with" | "without";
   duration: number;
   extraBranches: number;
   pricing: {
@@ -59,6 +60,7 @@ function branchesText(count: number) {
 
 export function buildContractClauses(input: ContractTextInput): ContractClause[] {
   const { provider, customer, signer, product, plan, pricing } = input;
+  const includesSiat = input.siatOption === "with";
   const totalBranches = plan.includedBranches + input.extraBranches;
   const clauses: ContractClause[] = [];
 
@@ -82,17 +84,25 @@ export function buildContractClauses(input: ContractTextInput): ContractClause[]
   });
 
   const isMulti = plan.mode.toLowerCase().includes("multi");
-  const features = product.features.filter((feature) => isMulti || !/multisucursal/i.test(feature));
+  const features = product.features.filter((feature) =>
+    (isMulti || !/multisucursal/i.test(feature)) && (includesSiat || !/\bSIAT\b/i.test(feature)),
+  );
   const scope = [
     "El sistema comprende las siguientes funciones:",
     ...features.map((feature) => `• ${feature}`),
   ];
   if (features.length === 0) scope.push("• El alcance funcional será confirmado por escrito por el PROVEEDOR antes de la instalación.");
-  if (product.includes) scope.push(`Todos los planes incluyen: ${product.includes}.`);
+  const includedItems = product.includes.split(",").map((item) => item.trim()).filter((item) => item && (includesSiat || !/\bSIAT\b/i.test(item)));
+  if (includedItems.length > 0) scope.push(`Todos los planes incluyen: ${includedItems.join(", ")}.`);
+  scope.push(includesSiat
+    ? "Facturación SIAT: incluida en esta contratación."
+    : "Facturación SIAT: no incluida en esta contratación; el sistema no emitirá facturas electrónicas mediante SIAT.");
   if (isMulti) {
     scope.push("El plan Multisucursal incluye además: traspasos entre sucursales, precios por sucursal, almacén central y vista de todo el negocio.");
   }
-  scope.push("No están incluidos: computadoras, impresoras, lectores de código, conexión a internet, ni los trámites, certificados o costos propios del CLIENTE ante Impuestos Nacionales (SIN). El PROVEEDOR ayuda en la obtención de CUIS y CUFD.");
+  scope.push(includesSiat
+    ? "No están incluidos: computadoras, impresoras, lectores de código, conexión a internet, ni los trámites, certificados o costos propios del CLIENTE ante Impuestos Nacionales (SIN). El PROVEEDOR ayuda en la obtención de CUIS y CUFD."
+    : "No están incluidos: integración ni facturación electrónica mediante SIAT, computadoras, impresoras, lectores de código, conexión a internet, ni los trámites, certificados o costos propios del CLIENTE ante Impuestos Nacionales (SIN).");
   clauses.push({ title: "TERCERA. QUÉ COMPRENDE EL SISTEMA", paragraphs: scope });
 
   const pay: string[] = [];
@@ -128,11 +138,13 @@ export function buildContractClauses(input: ContractTextInput): ContractClause[]
     support.push(`Día 1: el PROVEEDOR instala el sistema, carga los productos del CLIENTE y lo capacita.`);
     if (plan.warrantyMonths > 0) support.push(`Meses 1 a ${plan.warrantyMonths}: garantía con soporte y actualizaciones gratis.`);
     support.push(plan.maintenanceAnnual > 0
-      ? `Después de la garantía, el mantenimiento cuesta ${money(plan.maintenanceAnnual)} por año y se renueva cada 12 meses. Incluye actualizaciones del SIAT, respaldo de la información, soporte remoto y ayuda con CUIS y CUFD.`
+      ? `Después de la garantía, el mantenimiento cuesta ${money(plan.maintenanceAnnual)} por año y se renueva cada 12 meses. Incluye ${includesSiat ? "actualizaciones del SIAT y ayuda con CUIS y CUFD, " : ""}respaldo de la información y soporte remoto.`
       : "Después de la garantía, el mantenimiento anual se cotiza por separado.");
-    support.push("Si el CLIENTE no renueva el mantenimiento, puede seguir usando el sistema, pero sin actualizaciones (incluidas las exigidas por el SIN) ni soporte.");
+    support.push(includesSiat
+      ? "Si el CLIENTE no renueva el mantenimiento, puede seguir usando el sistema, pero sin actualizaciones (incluidas las exigidas por el SIN) ni soporte."
+      : "Si el CLIENTE no renueva el mantenimiento, puede seguir usando el sistema, pero sin actualizaciones ni soporte.");
   } else {
-    support.push("El mantenimiento está incluido mientras el plan esté pagado: actualizaciones del SIAT, respaldo de la información, soporte remoto y ayuda con CUIS y CUFD. No se paga nada más.");
+    support.push(`El mantenimiento está incluido mientras el plan esté pagado: ${includesSiat ? "actualizaciones del SIAT, respaldo de la información, soporte remoto y ayuda con CUIS y CUFD" : "actualizaciones generales del sistema, respaldo de la información y soporte remoto"}. No se paga nada más.`);
     support.push("La instalación, la carga inicial de productos y la capacitación están incluidas.");
   }
   clauses.push({ title: `${input.promotion ? "SEXTA" : "QUINTA"}. INSTALACIÓN, GARANTÍA Y MANTENIMIENTO`, paragraphs: support });

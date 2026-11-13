@@ -65,6 +65,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const rows: [string, string][] = [
     ["Sistema", `${contract.selection.productName} · ${contract.selection.mode}`],
     ["Plan", `${contract.selection.planName}${contract.selection.billing === "monthly" ? ` · ${contract.selection.duration} mes(es)` : ""}`],
+    ...(contract.selection.siatOption ? [["Facturación", contract.selection.siatOption === "with" ? "Con SIAT" : "Sin SIAT"]] : []),
     ["Locales", `${(contract.selection.includedBranches ?? 1) + (contract.selection.extraBranches ?? 0)}${contract.selection.extraBranches ? ` (incluye ${contract.selection.extraBranches} adicional/es)` : ""}`],
     ["Total a pagar", money(contract.pricing.total)],
   ];

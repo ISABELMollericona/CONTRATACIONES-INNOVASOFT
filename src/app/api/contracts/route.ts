@@ -20,6 +20,7 @@ const contractSchema = z.object({
   productSlug: z.string().min(1),
   planId: z.string().min(1),
   mode: z.string().min(1),
+  siatOption: z.enum(["with", "without"]),
   duration: z.number().int().positive(),
   extraBranches: z.number().int().min(0).max(50).optional(),
   promotionCode: z.string().trim().optional(),
@@ -44,6 +45,7 @@ const contractSchema = z.object({
 });
 
 function errorFor(path: string) {
+  if (path.startsWith("siatOption")) return "Elige si tu contratación será con SIAT o sin SIAT.";
   if (path.startsWith("signatureImage")) return "Dibuja tu firma en el recuadro antes de continuar.";
   if (path.startsWith("signerDocument")) return "Revisa el documento de identidad de quien firma.";
   if (path.startsWith("identityPhotos")) return "Sube las fotos del anverso y reverso de tu carnet (JPG o PNG, máximo 4 MB cada una).";
@@ -103,6 +105,7 @@ export async function POST(request: Request) {
       warrantyMonths: plan.warrantyMonths ?? 0,
       maintenanceAnnual: plan.maintenanceAnnual ?? 0,
     },
+    siatOption: input.siatOption,
     duration: input.duration,
     extraBranches,
     pricing,
@@ -127,7 +130,7 @@ export async function POST(request: Request) {
     code,
     clauses: contractClauses,
     customer,
-    selection: { product: product.name, mode: input.mode, plan: plan.name, duration: input.duration, extraBranches },
+    selection: { product: product.name, mode: input.mode, plan: plan.name, duration: input.duration, extraBranches, siatOption: input.siatOption },
     pricing,
     acceptedAt: now.toISOString(),
     signerName: input.signerName,
@@ -149,6 +152,7 @@ export async function POST(request: Request) {
       duration: input.duration,
       extraBranches,
       includedBranches,
+      siatOption: input.siatOption,
     },
     pricing,
     status: "pending_payment",
@@ -165,7 +169,7 @@ export async function POST(request: Request) {
     termsSnapshot: settings?.contractTerms ?? "",
     audit: [
       { event: "contract_read", by: session.user.email, at: now, note: "El cliente desplazó y leyó el contrato completo antes de aceptar." },
-      { event: "contract_accepted", by: session.user.email, at: now, note: `Firma electrónica simple (trazo dibujado + ${signerDocument.type} ${signerDocument.number} + foto del carnet); no equivale a firma digital certificada.` },
+      { event: "contract_accepted", by: session.user.email, at: now, note: `Firma electrónica simple (trazo dibujado + ${signerDocument.type} ${signerDocument.number} + foto del carnet; SIAT ${input.siatOption === "with" ? "incluido" : "no incluido"}); no equivale a firma digital certificada.` },
     ],
   });
   const qr = await qrForAmount(pricing.total, settings);
@@ -190,6 +194,7 @@ export async function GET() {
     productName: item.selection.productName,
     planName: item.selection.planName,
     mode: item.selection.mode,
+    siatOption: item.selection.siatOption ?? "",
     total: item.pricing.total,
     status: item.status,
     paymentStatus: item.paymentStatus,

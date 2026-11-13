@@ -65,6 +65,7 @@ type AdminContract = {
   customerPhone: string;
   planName: string;
   mode: string;
+  siatOption: "" | "with" | "without";
 };
 
 /** Convierte ISO (UTC) al formato local que espera <input type="datetime-local">. */
@@ -257,7 +258,7 @@ export default function AdminPage() {
           {contracts.map((item) => (
             <div className="admin-table-row" key={item.id}>
               <span><b>{item.code}</b><small>{new Date(item.createdAt).toLocaleDateString("es-BO")}</small><a className="text-link pdf-link" href={`/api/contracts/${item.id}/pdf`}>PDF firmado</a></span>
-              <span>{item.productName} · {item.planName}<small>{item.customerPhone} · </small><small>{item.signerName || item.customerName}{item.signerDocument ? ` · ${item.signerDocument}` : ""}{item.hasSignature ? " · ✍ firmado" : ""}</small>{item.hasIdentityPhotos && <small><a className="text-link pdf-link" href={`/api/admin/contracts/${item.id}/identity/front`} target="_blank" rel="noreferrer">Carnet anverso</a> · <a className="text-link pdf-link" href={`/api/admin/contracts/${item.id}/identity/back`} target="_blank" rel="noreferrer">reverso</a></small>}</span>
+              <span>{item.productName} · {item.planName}<small>{item.siatOption ? `Facturación ${item.siatOption === "with" ? "con" : "sin"} SIAT` : "SIAT no especificado (contrato anterior)"} · {item.customerPhone}</small><small>{item.signerName || item.customerName}{item.signerDocument ? ` · ${item.signerDocument}` : ""}{item.hasSignature ? " · ✍ firmado" : ""}</small>{item.hasIdentityPhotos && <small><a className="text-link pdf-link" href={`/api/admin/contracts/${item.id}/identity/front`} target="_blank" rel="noreferrer">Carnet anverso</a> · <a className="text-link pdf-link" href={`/api/admin/contracts/${item.id}/identity/back`} target="_blank" rel="noreferrer">reverso</a></small>}</span>
               <span>Bs {item.total.toLocaleString("es-BO")}</span>
               <span><em className={`status status-${item.paymentStatus}`}>{statusLabels[item.paymentStatus] ?? item.paymentStatus}</em></span>
               <span>{item.paymentStatus === "pending_review" ? <div className="row-actions"><a href={`/api/admin/contracts/${item.id}/receipt`} target="_blank" rel="noreferrer">Ver comprobante</a><button disabled={busy} onClick={() => decidePayment(item.id, "validate")}>Validar</button><button className="danger-link" disabled={busy} onClick={() => decidePayment(item.id, "reject")}>Rechazar</button></div> : statusLabels[item.status] ?? item.status}</span>

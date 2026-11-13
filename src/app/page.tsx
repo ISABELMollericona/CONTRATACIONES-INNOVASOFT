@@ -89,6 +89,7 @@ export default function HomePage() {
   const [planId, setPlanId] = useState("");
   const [duration, setDuration] = useState(1);
   const [extraBranches, setExtraBranches] = useState(0);
+  const [siatOption, setSiatOption] = useState<"with" | "without">("with");
   const [identityFront, setIdentityFront] = useState("");
   const [identityBack, setIdentityBack] = useState("");
   const [contractRead, setContractRead] = useState(false);
@@ -216,15 +217,16 @@ export default function HomePage() {
       signer: { name: effectiveSigner.name, document: signerDocumentText },
       product: { name: selectedProduct.name, features: selectedProduct.features, includes: selectedProduct.includes },
       plan: { ...selectedPlan },
+      siatOption,
       duration,
       extraBranches,
       pricing: quote,
       promotion: selectedPlan.promotion && quote.discount > 0 ? { description: selectedPlan.promotion.description || selectedPlan.promotion.name, validUntil: selectedPlan.promotion.validUntil } : null,
       extraTerms: settings?.contractTerms ?? "",
     });
-  }, [selectedProduct, selectedPlan, quote, settings, customer, customerDocument, effectiveSigner.name, signerDocumentText, duration, extraBranches]);
+  }, [selectedProduct, selectedPlan, quote, settings, customer, customerDocument, effectiveSigner.name, signerDocumentText, siatOption, duration, extraBranches]);
   // Si cambia el plan o el precio, el contrato cambia: hay que leerlo de nuevo.
-  const contractKey = `${selectedProduct?.slug}|${planId}|${duration}|${extraBranches}|${quote?.total ?? ""}`;
+  const contractKey = `${selectedProduct?.slug}|${planId}|${duration}|${extraBranches}|${siatOption}|${quote?.total ?? ""}`;
 
   // Al elegir un sistema, la sección de planes aparece más abajo: la llevamos a la vista.
   const [scrollRequest, setScrollRequest] = useState(0);
@@ -304,6 +306,7 @@ export default function HomePage() {
           mode,
           duration,
           extraBranches,
+          siatOption,
           promotionCode,
           customer,
           signerName: effectiveSigner.name,
@@ -449,6 +452,12 @@ export default function HomePage() {
               <div className="step-title"><span>2</span><div><h3>Datos y aceptación</h3><p>Inicia sesión para guardar tu contrato.</p></div></div>
               {!localPreview && !session?.user && <button type="button" className="button google-button full" onClick={login}>{appInfo.googleLogin ? "G Continuar con Google" : "Continuar (acceso de prueba local)"}</button>}
               <form className="customer-form" onSubmit={submitContract}>
+                <fieldset className="signature-section siat-section">
+                  <legend>Facturación SIAT</legend>
+                  <p className="muted">Elige si tu contratación incluye facturación electrónica integrada con SIAT. Esta elección no cambia el precio.</p>
+                  <label><input type="radio" name="siatOption" value="with" checked={siatOption === "with"} onChange={() => setSiatOption("with")} /> Con SIAT</label>
+                  <label><input type="radio" name="siatOption" value="without" checked={siatOption === "without"} onChange={() => setSiatOption("without")} /> Sin SIAT</label>
+                </fieldset>
                 <div className="field-pair">
                   <label>Nombre completo<input required minLength={2} maxLength={120} value={customer.name} onChange={(event) => setCustomer({ ...customer, name: event.target.value })} /></label>
                   <label>Tipo de documento<select value={customer.documentType} onChange={(event) => setCustomer({ ...customer, documentType: event.target.value, documentIssuedIn: event.target.value === "CI" ? customer.documentIssuedIn : "", documentComplement: event.target.value === "CI" ? customer.documentComplement : "" })}>{DOCUMENT_TYPES.map((item) => <option key={item}>{item}</option>)}</select></label>

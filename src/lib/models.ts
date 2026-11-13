@@ -82,6 +82,7 @@ type ContractDocument = {
     duration: number;
     extraBranches: number;
     includedBranches: number;
+    siatOption?: "with" | "without";
   };
   pricing: {
     unitPrice: number;
@@ -211,6 +212,7 @@ const ContractSchema = new Schema<ContractDocument>(
       duration: { type: Number, required: true },
       extraBranches: { type: Number, default: 0 },
       includedBranches: { type: Number, default: 1 },
+      siatOption: { type: String, enum: ["with", "without"] },
     },
     pricing: {
       unitPrice: { type: Number, required: true },

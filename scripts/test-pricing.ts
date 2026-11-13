@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { calculateQuote } from "../src/lib/pricing";
+import { qrExpiryStatus, qrIsExpired } from "../src/lib/qr-expiry";
 
 const firstMonthPromotion = {
   name: "Primer mes al 50%",
@@ -52,5 +53,13 @@ assert.equal(multi.discount, 225);
 const annualMulti = calculateQuote({ price: 4500, billing: "annual", duration: 12, promotion: firstMonthPromotion, extraBranches: 1, extraBranchPrice: 1500 });
 assert.equal(annualMulti.total, 6000);
 assert.equal(annualMulti.promotionName, "");
+
+const qrCheckDate = new Date("2026-11-13T16:00:00-04:00");
+assert.equal(qrExpiryStatus("2026-11-20", qrCheckDate), "expiring");
+assert.equal(qrExpiryStatus("2026-11-21", qrCheckDate), "active");
+assert.equal(qrExpiryStatus("2026-11-12", qrCheckDate), "expired");
+assert.equal(qrIsExpired("2026-11-12", qrCheckDate), true);
+assert.equal(qrExpiryStatus("", qrCheckDate), "active");
+assert.equal(qrExpiryStatus("2026-11-12", new Date("2026-11-13T02:00:00Z")), "expiring");
 
 console.log("Pricing checks passed.");

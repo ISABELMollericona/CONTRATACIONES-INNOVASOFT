@@ -118,9 +118,10 @@ type SettingsDocument = {
   beneficiary: string;
   accountNumber: string;
   qrImageUrl: string;
+  qrImageValidUntil: string;
   paymentInstructions: string;
   contractTerms: string;
-  qrByAmount: { amount: number; imageUrl: string }[];
+  qrByAmount: { amount: number; imageUrl: string; validUntil: string }[];
 };
 
 const PlanSchema = new Schema<Plan>(
@@ -272,9 +273,10 @@ const SettingsSchema = new Schema<SettingsDocument>(
     beneficiary: { type: String, default: "" },
     accountNumber: { type: String, default: "" },
     qrImageUrl: { type: String, default: "" },
+    qrImageValidUntil: { type: String, default: "" },
     paymentInstructions: { type: String, default: "" },
     contractTerms: { type: String, default: "El comprobante será revisado por CHAVIX. La contratación se activa después de validar el pago y completar la aceptación del contrato." },
-    qrByAmount: { type: [{ _id: false, amount: Number, imageUrl: String }], default: [] },
+    qrByAmount: { type: [{ _id: false, amount: Number, imageUrl: String, validUntil: { type: String, default: "" } }], default: [] },
   },
   { timestamps: true },
 );

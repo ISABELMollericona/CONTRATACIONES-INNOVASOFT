@@ -6,6 +6,14 @@ import { Product, Promotion, Settings } from "@/lib/models";
 
 export const dynamic = "force-dynamic";
 
+const qrExpirySchema = z.string().refine((value) => {
+  if (!value) return true;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}, "La fecha de vencimiento no es válida.");
+const qrImageUrlSchema = z.string().trim().url().or(z.string().regex(/^\/qr\/[A-Za-z0-9._-]+$/));
+
 const configSchema = z.object({
   settings: z.object({
     businessName: z.string().trim().min(1).max(100),
@@ -14,10 +22,15 @@ const configSchema = z.object({
     bankName: z.string().trim().max(100),
     beneficiary: z.string().trim().max(120),
     accountNumber: z.string().trim().max(80),
-    qrImageUrl: z.string().trim().url().or(z.literal("")),
+    qrImageUrl: qrImageUrlSchema.or(z.literal("")),
+    qrImageValidUntil: qrExpirySchema,
     paymentInstructions: z.string().trim().max(500),
     contractTerms: z.string().trim().max(5000),
-    qrByAmount: z.array(z.object({ amount: z.number().positive().max(10000000), imageUrl: z.string().trim().url() })).max(200).default([]),
+    qrByAmount: z.array(z.object({
+      amount: z.number().positive().max(10000000),
+      imageUrl: qrImageUrlSchema,
+      validUntil: qrExpirySchema,
+    })).max(200).default([]),
   }),
   products: z.array(z.object({
     slug: z.string().regex(/^[a-z0-9-]+$/),
@@ -95,9 +108,10 @@ export async function GET() {
       beneficiary: settings.beneficiary,
       accountNumber: settings.accountNumber,
       qrImageUrl: settings.qrImageUrl,
+      qrImageValidUntil: settings.qrImageValidUntil ?? "",
       paymentInstructions: settings.paymentInstructions,
       contractTerms: settings.contractTerms,
-      qrByAmount: (settings.qrByAmount ?? []).map((item) => ({ amount: item.amount, imageUrl: item.imageUrl })),
+      qrByAmount: (settings.qrByAmount ?? []).map((item) => ({ amount: item.amount, imageUrl: item.imageUrl, validUntil: item.validUntil ?? "" })),
     } : {},
     promotion: promotion ? {
       active: promotion.active,

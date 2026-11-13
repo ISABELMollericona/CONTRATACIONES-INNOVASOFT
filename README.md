@@ -102,7 +102,9 @@ El catálogo está definido en `src/lib/catalog-data.ts`. `npm run seed` carga p
 
 ## QR de pago por monto
 
-Para mostrar un QR exacto, agrega su imagen en `public/qr/` con el nombre del monto, por ejemplo `public/qr/375.png`; los montos decimales usan guion bajo, por ejemplo `public/qr/562_50.png`. La app también permite registrar URLs de imágenes QR por monto desde administración. Si no encuentra un QR exacto, muestra el QR general configurado y solicita al cliente que escriba el monto.
+En **Administración → Configuración general** se pueden subir un QR general y QR por monto (JPG o PNG, hasta 5 MB), previsualizarlos y ajustar el recorte cuadrado con zoom y posición. La fecha de vencimiento es opcional; se avisa en el panel cuando faltan 7 días o menos y cuando ya venció. La fecha se interpreta en hora de Bolivia. Al vencer, el QR deja de ofrecerse a los clientes: un QR por monto vencido no se reemplaza por el QR general; si vence el general, no se muestra como alternativa.
+
+En producción, las imágenes subidas se guardan en Cloudinary, por lo que configura sus tres variables de entorno antes de cargar QR. En desarrollo sin Cloudinary se guardan en `public/qr/`. También se admiten archivos agregados manualmente a esa carpeta con el nombre exacto del monto, por ejemplo `public/qr/375.png`; los montos decimales usan guion bajo, por ejemplo `public/qr/562_50.png`. Si un monto no tiene QR exacto, se muestra el QR general vigente y se pide al cliente escribir el monto.
 
 Para los precios base sin sucursales adicionales, los 28 montos posibles son: Bs 125, 225, 375, 625, 675, 875, 1.125, 1.375, 1.575, 1.625, 1.875, 2.000, 2.025, 2.125, 2.375, 2.475, 2.500, 2.625, 2.875, 2.925, 3.375, 3.500, 3.825, 4.275, 4.500, 4.725, 5.175 y 7.000. Las sucursales adicionales pueden generar otros importes.
 

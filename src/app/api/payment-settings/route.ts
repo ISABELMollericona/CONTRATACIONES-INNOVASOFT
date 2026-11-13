@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDb } from "@/lib/db";
 import { isLocalPreview } from "@/lib/demo";
 import { Settings } from "@/lib/models";
+import { qrIsExpired } from "@/lib/qr-expiry";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export async function GET() {
     bankName: settings?.bankName ?? "",
     beneficiary: settings?.beneficiary ?? "",
     accountNumber: settings?.accountNumber ?? "",
-    qrImageUrl: settings?.qrImageUrl ?? "",
+    qrImageUrl: qrIsExpired(settings?.qrImageValidUntil) ? "" : settings?.qrImageUrl ?? "",
     paymentInstructions: settings?.paymentInstructions ?? "",
     contractTerms: settings?.contractTerms ?? "",
   });

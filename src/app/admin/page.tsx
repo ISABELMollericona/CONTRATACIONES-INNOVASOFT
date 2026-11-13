@@ -2,6 +2,8 @@
 
 import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { QrImageEditor } from "@/app/admin/qr-image-editor";
+import { qrExpiryStatus } from "@/lib/qr-expiry";
 
 type AdminPlan = {
   id?: string;
@@ -40,9 +42,10 @@ type Config = {
     beneficiary: string;
     accountNumber: string;
     qrImageUrl: string;
+    qrImageValidUntil: string;
     paymentInstructions: string;
     contractTerms: string;
-    qrByAmount: { amount: number; imageUrl: string }[];
+    qrByAmount: { amount: number; imageUrl: string; validUntil: string }[];
   };
   promotion: { active: boolean; startsAt: string; endsAt: string } | null;
 };
@@ -90,6 +93,7 @@ const blankSettings: Config["settings"] = {
   beneficiary: "",
   accountNumber: "",
   qrImageUrl: "",
+  qrImageValidUntil: "",
   paymentInstructions: "",
   contractTerms: "El comprobante será revisado por CHAVIX. La contratación se activa después de validar el pago y completar la aceptación del contrato.",
   qrByAmount: [],
@@ -103,6 +107,7 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [qrClock, setQrClock] = useState(() => Date.now());
 
   async function load() {
     const [configResponse, contractsResponse] = await Promise.all([
@@ -126,6 +131,11 @@ export default function AdminPage() {
     load().catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : "Error cargando el panel."));
   }, [status]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setQrClock(Date.now()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   function updateProduct(index: number, patch: Partial<AdminProduct>) {
     if (!config) return;
     const products = [...config.products];
@@ -140,6 +150,17 @@ export default function AdminPage() {
     plans[planIndex] = { ...plans[planIndex], ...patch };
     products[productIndex] = { ...products[productIndex], plans };
     setConfig({ ...config, products });
+  }
+
+  function updateQr(index: number, patch: Partial<Config["settings"]["qrByAmount"][number]>) {
+    if (!config) return;
+    setConfig({
+      ...config,
+      settings: {
+        ...config.settings,
+        qrByAmount: config.settings.qrByAmount.map((item, rowIndex) => rowIndex === index ? { ...item, ...patch } : item),
+      },
+    });
   }
 
   function addProduct() {
@@ -214,6 +235,11 @@ export default function AdminPage() {
   if (status === "loading") return <main className="wrap admin-page"><div className="empty">Cargando...</div></main>;
   if (!session?.user) return <main className="wrap admin-page"><div className="empty"><h1>Panel CHAVIX</h1><p>Inicia sesión con la cuenta Google autorizada como administradora.</p><button className="button" onClick={() => signIn("google")}>Entrar con Google</button></div></main>;
   if (session.user.role !== "admin") return <main className="wrap admin-page"><div className="alert error">Tu cuenta no tiene permisos de administración.</div><a className="text-link" href="/">Volver al catálogo</a></main>;
+
+  const expiringQrs = config ? [
+    ...(config.settings.qrImageUrl ? [{ label: "QR general", validUntil: config.settings.qrImageValidUntil }] : []),
+    ...config.settings.qrByAmount.map((item) => ({ label: `QR de Bs ${item.amount.toLocaleString("es-BO")}`, validUntil: item.validUntil })),
+  ].filter((item) => item.validUntil && qrExpiryStatus(item.validUntil, new Date(qrClock)) !== "active") : [];
 
   return (
     <main className="wrap admin-page">
@@ -295,21 +321,33 @@ export default function AdminPage() {
           <label>Banco<input value={config.settings.bankName} onChange={(event) => setConfig({ ...config, settings: { ...config.settings, bankName: event.target.value } })} /></label>
           <label>Beneficiario<input value={config.settings.beneficiary} onChange={(event) => setConfig({ ...config, settings: { ...config.settings, beneficiary: event.target.value } })} /></label>
           <label>Número de cuenta<input value={config.settings.accountNumber} onChange={(event) => setConfig({ ...config, settings: { ...config.settings, accountNumber: event.target.value } })} /></label>
-          <label className="wide">URL pública de imagen QR (usa enlace de almacenamiento permanente)<input type="url" value={config.settings.qrImageUrl} onChange={(event) => setConfig({ ...config, settings: { ...config.settings, qrImageUrl: event.target.value } })} /></label>
+          <div className="wide">
+            <h3>QR general</h3>
+            <QrImageEditor label="Subir imagen QR general (JPG o PNG, hasta 5 MB)" imageUrl={config.settings.qrImageUrl} onUploaded={(imageUrl) => setConfig({ ...config, settings: { ...config.settings, qrImageUrl: imageUrl } })} />
+            <label>Fecha de vencimiento<input type="date" value={config.settings.qrImageValidUntil} onChange={(event) => setConfig({ ...config, settings: { ...config.settings, qrImageValidUntil: event.target.value } })} /></label>
+          </div>
           <label className="wide">Instrucciones de pago<textarea rows={2} value={config.settings.paymentInstructions} onChange={(event) => setConfig({ ...config, settings: { ...config.settings, paymentInstructions: event.target.value } })} /></label>
           <label className="wide">Condiciones adicionales del contrato (se agregan como cláusula)<textarea rows={4} value={config.settings.contractTerms} onChange={(event) => setConfig({ ...config, settings: { ...config.settings, contractTerms: event.target.value } })} /></label>
         </div>
         <div className="promotion-editor">
           <h3>QR por monto</h3>
-          <p className="muted">Si un monto no tiene QR aquí ni en <code>public/qr/&lt;monto&gt;.png</code>, se muestra el QR general y se pide al cliente escribir el monto.</p>
+          <p className="muted">Sube el QR y ajusta el recorte cuadrado con zoom y posición. La fecha es opcional; al vencer, ese QR deja de mostrarse. Se avisa en este panel desde 7 días antes.</p>
+          {expiringQrs.length > 0 && <div className="alert qr-expiry-alert" role="status">
+            <b>Revisa los QR que vencen pronto o ya vencieron:</b>
+            <ul>{expiringQrs.map((item) => {
+              const status = qrExpiryStatus(item.validUntil, new Date(qrClock));
+              return <li key={`${item.label}-${item.validUntil}`}><b>{item.label}</b>: {status === "expired" ? `venció el ${item.validUntil}; no se mostrará a los clientes` : `vence el ${item.validUntil}`}</li>;
+            })}</ul>
+          </div>}
           {config.settings.qrByAmount.map((item, index) => (
             <div className="field-pair qr-row" key={index}>
               <label>Monto (Bs)<input type="number" min="0" step="0.01" value={item.amount} onChange={(event) => setConfig({ ...config, settings: { ...config.settings, qrByAmount: config.settings.qrByAmount.map((row, rowIndex) => rowIndex === index ? { ...row, amount: Number(event.target.value) } : row) } })} /></label>
-              <label>URL de la imagen QR<input type="url" value={item.imageUrl} onChange={(event) => setConfig({ ...config, settings: { ...config.settings, qrByAmount: config.settings.qrByAmount.map((row, rowIndex) => rowIndex === index ? { ...row, imageUrl: event.target.value } : row) } })} /></label>
-              <button className="danger-link" onClick={() => setConfig({ ...config, settings: { ...config.settings, qrByAmount: config.settings.qrByAmount.filter((_, rowIndex) => rowIndex !== index) } })}>Quitar</button>
+              <QrImageEditor label="Subir y recortar QR (JPG o PNG)" imageUrl={item.imageUrl} onUploaded={(imageUrl) => updateQr(index, { imageUrl })} />
+              <label>Vence el<input type="date" value={item.validUntil} onChange={(event) => updateQr(index, { validUntil: event.target.value })} /></label>
+              <button type="button" className="danger-link" onClick={() => setConfig({ ...config, settings: { ...config.settings, qrByAmount: config.settings.qrByAmount.filter((_, rowIndex) => rowIndex !== index) } })}>Quitar</button>
             </div>
           ))}
-          <button className="text-link" onClick={() => setConfig({ ...config, settings: { ...config.settings, qrByAmount: [...config.settings.qrByAmount, { amount: 0, imageUrl: "" }] } })}>+ Agregar QR por monto</button>
+          <button type="button" className="text-link" onClick={() => setConfig({ ...config, settings: { ...config.settings, qrByAmount: [...config.settings.qrByAmount, { amount: 0, imageUrl: "", validUntil: "" }] } })}>+ Agregar QR por monto</button>
         </div>
         {config.promotion && <div className="promotion-editor">
           <h3>Promoción Black Friday: primer mes al 50%</h3>

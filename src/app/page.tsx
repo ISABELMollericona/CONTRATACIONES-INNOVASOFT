@@ -63,7 +63,7 @@ type PaymentSettings = {
   paymentInstructions: string;
   contractTerms: string;
 };
-type CreatedContract = { id: string; code: string; status: string; total: number; payment: { amount: number; qrImageUrl: string; exactAmountQr: boolean } };
+type CreatedContract = { id: string; code: string; status: string; total: number; payment: { amount: number; qrImageUrl: string; exactAmountQr: boolean; qrExpired: boolean } };
 
 const money = (amount: number) => `Bs ${amount.toLocaleString("es-BO", { maximumFractionDigits: 2 })}`;
 
@@ -519,7 +519,7 @@ export default function HomePage() {
                 {contract.payment.qrImageUrl
                   ? <><img className="payment-qr" src={contract.payment.qrImageUrl} alt={`Código QR de pago por ${money(contract.payment.amount)}`} />
                     {!contract.payment.exactAmountQr && <p className="alert">Este QR no tiene el monto cargado: escribe <b>{money(contract.payment.amount)}</b> al pagar.</p>}</>
-                  : <p className="alert">El QR para {money(contract.payment.amount)} aún no está disponible. Paga por transferencia o escríbenos al {settings?.contactPhone}.</p>}
+                  : <p className="alert">{contract.payment.qrExpired ? "Este QR venció y ya no está disponible. " : `El QR para ${money(contract.payment.amount)} aún no está disponible. `}Paga por transferencia o escríbenos al {settings?.contactPhone}.</p>}
                 <p><b>Beneficiario:</b> {settings?.beneficiary || "Pendiente de configurar"}</p>
                 <p><b>Banco:</b> {settings?.bankName || "Pendiente de configurar"}</p>
                 <p><b>Cuenta:</b> {settings?.accountNumber || "Pendiente de configurar"}</p>

@@ -174,7 +174,7 @@ export async function POST(request: Request) {
     code: contract.code,
     status: contract.status,
     total: pricing.total,
-    payment: { amount: pricing.total, qrImageUrl: qr.url, exactAmountQr: qr.exactAmount },
+    payment: { amount: pricing.total, qrImageUrl: qr.url, exactAmountQr: qr.exactAmount, qrExpired: qr.expired },
   }, { status: 201 });
 }
 

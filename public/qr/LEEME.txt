@@ -1,0 +1,5 @@
+Coloca aquí una imagen QR por cada monto, nombrada con el monto exacto:
+  125.png, 375.png, 625.png, 2500.png, 3500.png, 7000.png ...
+Si el monto tiene centavos: 562_50.png
+Para ver todos los montos posibles: npm run qr:amounts
+Si no hay QR para un monto, la web muestra el QR general y pide escribir el monto.

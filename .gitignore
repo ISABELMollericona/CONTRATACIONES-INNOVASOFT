@@ -1,0 +1,12 @@
+node_modules
+.next
+.next-local
+out
+coverage
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+*.tsbuildinfo
+.local-uploads
+.next-build

@@ -4,8 +4,8 @@ import { Providers } from "@/app/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CHAVIX | Contrataciones",
-  description: "Conoce los sistemas CHAVIX y contrata en línea.",
+  title: "InnovaSoft | Contrataciones CHAVIX",
+  description: "Conoce los sistemas CHAVIX de InnovaSoft y contrata en línea.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

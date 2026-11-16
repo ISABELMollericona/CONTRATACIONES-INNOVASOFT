@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
+import { notifyAdministrators } from "@/lib/admin-notifications";
 import { buildContractClauses } from "@/lib/contract-text";
 import { connectDb } from "@/lib/db";
 import { DOCUMENT_TYPES, ISSUED_IN_OPTIONS, formatDocument, signatureImageSchema, signerDocumentSchema } from "@/lib/identity";
@@ -173,11 +174,23 @@ export async function POST(request: Request) {
     ],
   });
   const qr = await qrForAmount(pricing.total, settings);
+  const notification = await notifyAdministrators("new_contract", {
+    id: String(contract._id),
+    code: contract.code,
+    customerName: customer.name,
+    customerEmail: customer.email,
+    customerPhone: customer.phone,
+    productName: product.name,
+    planName: plan.name,
+    total: pricing.total,
+    createdAt: contract.createdAt,
+  });
   return NextResponse.json({
     id: String(contract._id),
     code: contract.code,
     status: contract.status,
     total: pricing.total,
+    emailNotificationSent: notification.sent,
     payment: { amount: pricing.total, qrImageUrl: qr.url, exactAmountQr: qr.exactAmount, qrExpired: qr.expired },
   }, { status: 201 });
 }

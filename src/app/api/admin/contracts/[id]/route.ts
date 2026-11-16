@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { getAdminSession } from "@/lib/admin";
+import { notifyAdministrators } from "@/lib/admin-notifications";
 import { connectDb } from "@/lib/db";
 import { formatDocument } from "@/lib/identity";
 import { Contract } from "@/lib/models";
@@ -54,7 +55,22 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     { new: true },
   );
   if (!contract) return NextResponse.json({ error: "El comprobante ya fue procesado o no está pendiente." }, { status: 409 });
-  return NextResponse.json({ status: contract.status, paymentStatus: contract.paymentStatus });
+  const notification = await notifyAdministrators(isValid ? "payment_validated" : "payment_rejected", {
+    id: String(contract._id),
+    code: contract.code,
+    customerName: contract.customer.name,
+    customerEmail: contract.customer.email,
+    customerPhone: contract.customer.phone,
+    productName: contract.selection.productName,
+    planName: contract.selection.planName,
+    total: contract.pricing.total,
+    createdAt: contract.createdAt,
+  });
+  return NextResponse.json({
+    status: contract.status,
+    paymentStatus: contract.paymentStatus,
+    emailNotificationSent: notification.sent,
+  });
 }
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {

@@ -3,6 +3,7 @@
 import { signIn, signOut, useSession } from "next-auth/react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ContractReader } from "@/app/contract-reader";
+import { BrandLogos } from "@/app/brand-logos";
 import { IdPhotoInput } from "@/app/id-photo-input";
 import { SignaturePad } from "@/app/signature-pad";
 import { buildContractClauses } from "@/lib/contract-text";
@@ -63,7 +64,7 @@ type PaymentSettings = {
   paymentInstructions: string;
   contractTerms: string;
 };
-type CreatedContract = { id: string; code: string; status: string; total: number; payment: { amount: number; qrImageUrl: string; exactAmountQr: boolean; qrExpired: boolean } };
+type CreatedContract = { id: string; code: string; status: string; total: number; emailNotificationSent?: boolean; payment: { amount: number; qrImageUrl: string; exactAmountQr: boolean; qrExpired: boolean } };
 
 const money = (amount: number) => `Bs ${amount.toLocaleString("es-BO", { maximumFractionDigits: 2 })}`;
 
@@ -343,7 +344,9 @@ export default function HomePage() {
       const response = await fetch(`/api/contracts/${contract.id}/receipt`, { method: "POST", body: form });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "No se pudo cargar el comprobante.");
-      setReceiptMessage("Comprobante recibido. El pago está pendiente de revisión manual.");
+      setReceiptMessage(body.emailNotificationSent === false
+        ? "Comprobante recibido y pendiente de revisión, pero no se pudo enviar la alerta por correo al equipo."
+        : "Comprobante recibido. El pago está pendiente de revisión manual.");
     } catch (error) {
       setReceiptMessage(error instanceof Error ? error.message : "Ocurrió un error al cargar el comprobante.");
     } finally {
@@ -354,7 +357,7 @@ export default function HomePage() {
   return (
     <main>
       <header className="topbar wrap">
-        <a className="brand" href="#"><span className="brand-mark">✳</span> CHAVIX</a>
+        <BrandLogos />
         <nav><a href="#sistemas">Sistemas</a><a href="#como-funciona">Cómo funciona</a></nav>
         {localPreview ? <span className="preview-pill">Vista previa local</span> : status === "loading" ? <span className="muted">Cargando...</span> : session?.user ? (
           <div className="account">
@@ -521,6 +524,7 @@ export default function HomePage() {
             <span className="success-mark">✓</span><div>
               <span className="eyebrow">CONTRATACIÓN CREADA</span><h2>{contract.code}</h2>
               <p>Tu solicitud y aceptación quedaron registradas. El pago aún no está confirmado.</p>
+              {contract.emailNotificationSent === false && <div className="alert error">La contratación quedó registrada, pero no se pudo enviar la alerta por correo al equipo. Contacta a CHAVIX para confirmar.</div>}
               <a className="button button-outline no-print" href={`/api/contracts/${contract.id}/pdf`}>Descargar contrato PDF</a>
               <div className="payment-details">
                 <h3>Pago mediante QR</h3>
@@ -549,7 +553,7 @@ export default function HomePage() {
         <div><span className="eyebrow">FÁCIL Y TRANSPARENTE</span><h2>Empieza a trabajar con CHAVIX.</h2><p>Elige tu sistema, revisa el precio y envía tu solicitud desde cualquier dispositivo.</p></div>
         <a className="button button-light" href="#sistemas">Explorar sistemas →</a>
       </section>
-      <footer className="footer wrap"><a className="brand" href="#"><span className="brand-mark">✳</span> CHAVIX</a><span>© {new Date().getFullYear()} CHAVIX · Bolivia</span><a href={`tel:${settings?.contactPhone ?? ""}`}>{settings?.contactPhone ? `Contáctanos: ${settings.contactPhone}` : "Contáctanos"}</a></footer>
+      <footer className="footer wrap"><BrandLogos /><span>© {new Date().getFullYear()} InnovaSoft · Sistemas CHAVIX · Bolivia</span><a href={`tel:${settings?.contactPhone ?? ""}`}>{settings?.contactPhone ? `Contáctanos: ${settings.contactPhone}` : "Contáctanos"}</a></footer>
     </main>
   );
 }

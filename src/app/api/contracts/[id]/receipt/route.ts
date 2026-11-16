@@ -2,6 +2,7 @@ import { isValidObjectId } from "mongoose";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
+import { notifyAdministrators } from "@/lib/admin-notifications";
 import { connectDb } from "@/lib/db";
 import { Contract } from "@/lib/models";
 import { detectMime, storageAvailable, storePrivateFile } from "@/lib/storage";
@@ -46,5 +47,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   contract.status = "pending_review";
   contract.audit.push({ event: "receipt_uploaded", by: session.user.email, at: new Date(), note: "Comprobante recibido; requiere validación manual." });
   await contract.save();
-  return NextResponse.json({ status: contract.paymentStatus });
+  const notification = await notifyAdministrators("receipt_uploaded", {
+    id: String(contract._id),
+    code: contract.code,
+    customerName: contract.customer.name,
+    customerEmail: contract.customer.email,
+    customerPhone: contract.customer.phone,
+    productName: contract.selection.productName,
+    planName: contract.selection.planName,
+    total: contract.pricing.total,
+    createdAt: contract.createdAt,
+  });
+  return NextResponse.json({ status: contract.paymentStatus, emailNotificationSent: notification.sent });
 }

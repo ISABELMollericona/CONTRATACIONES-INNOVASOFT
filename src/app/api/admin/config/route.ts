@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getAdminNotificationStatus } from "@/lib/admin-notifications";
 import { getAdminSession } from "@/lib/admin";
 import { connectDb } from "@/lib/db";
 import { Product, Promotion, Settings } from "@/lib/models";
@@ -174,6 +175,7 @@ export async function GET() {
       endsAt: new Date(item.endsAt).toISOString(),
       active: item.active,
     })),
+    emailNotifications: getAdminNotificationStatus(),
   });
 }
 

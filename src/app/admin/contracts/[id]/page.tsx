@@ -3,6 +3,7 @@
 import { signIn, useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { BrandLogos } from "@/app/brand-logos";
 import { auditLabels, billingLabels, dateTime, money, paymentLabels, statusLabels, statusTone, timeAgo, whatsappLink } from "@/app/admin/labels";
 
 type Detail = {
@@ -105,7 +106,8 @@ export default function ContractDetailPage() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "No se pudo completar la acción.");
       await load();
-      setNotice(decision === "validate" ? "Pago validado: el contrato está activo." : decision === "reject" ? "Pago rechazado: el cliente puede enviar otro comprobante." : "Nota guardada.");
+      const actionNotice = decision === "validate" ? "Pago validado: el contrato está activo." : decision === "reject" ? "Pago rechazado: el cliente puede enviar otro comprobante." : "Nota guardada.";
+      setNotice(`${actionNotice}${body.emailNotificationSent === false ? " No se pudo enviar la alerta por correo; revisa la configuración SMTP." : ""}`);
       if (decision === "note") setNote("");
       if (decision === "reject") { setRejectReason(""); setShowReject(false); }
     } catch (actionError) {
@@ -116,7 +118,7 @@ export default function ContractDetailPage() {
   }
 
   if (status === "loading") return <main className="wrap admin-page"><div className="empty">Cargando...</div></main>;
-  if (!session?.user) return <main className="wrap admin-page"><div className="empty"><h1>Panel CHAVIX</h1><button className="button" onClick={() => signIn()}>Entrar</button></div></main>;
+  if (!session?.user) return <main className="wrap admin-page"><div className="empty"><BrandLogos /><h1>Panel de administración InnovaSoft</h1><button className="button" onClick={() => signIn()}>Entrar</button></div></main>;
   if (session.user.role !== "admin") return <main className="wrap admin-page"><div className="alert error">Tu cuenta no tiene permisos de administración.</div></main>;
   if (error && !detail) return <main className="wrap admin-page"><a className="text-link" href="/admin">← Volver a contrataciones</a><div className="alert error">{error}</div></main>;
   if (!detail) return <main className="wrap admin-page"><div className="empty">Cargando contratación...</div></main>;

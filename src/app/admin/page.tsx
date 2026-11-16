@@ -2,6 +2,7 @@
 
 import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { BrandLogos } from "@/app/brand-logos";
 import { ContractsBoard, type BoardContract } from "@/app/admin/contracts-board";
 import { QrImageEditor } from "@/app/admin/qr-image-editor";
 import { qrExpiryStatus } from "@/lib/qr-expiry";
@@ -49,6 +50,7 @@ type AdminDiscountCode = {
 };
 type Config = {
   products: AdminProduct[];
+  emailNotifications: { configured: boolean; recipientCount: number; missing: string[] };
   settings: {
     businessName: string;
     contactPhone: string;
@@ -124,6 +126,7 @@ export default function AdminPage() {
     if (!contractsResponse.ok) throw new Error(contractBody.error ?? "No se pudieron cargar las contrataciones.");
     setConfig({
       products: configBody.products,
+      emailNotifications: configBody.emailNotifications,
       settings: { ...blankSettings, ...configBody.settings },
       promotion: configBody.promotion,
       discountCodes: configBody.discountCodes ?? [],
@@ -256,7 +259,7 @@ export default function AdminPage() {
   }
 
   if (status === "loading") return <main className="wrap admin-page"><div className="empty">Cargando...</div></main>;
-  if (!session?.user) return <main className="wrap admin-page"><div className="empty"><h1>Panel CHAVIX</h1><p>Inicia sesión con la cuenta Google autorizada como administradora.</p><button className="button" onClick={() => signIn("google")}>Entrar con Google</button></div></main>;
+  if (!session?.user) return <main className="wrap admin-page"><div className="empty"><BrandLogos /><h1>Panel de administración InnovaSoft</h1><p>Inicia sesión con la cuenta Google autorizada como administradora.</p><button className="button" onClick={() => signIn("google")}>Entrar con Google</button></div></main>;
   if (session.user.role !== "admin") return <main className="wrap admin-page"><div className="alert error">Tu cuenta no tiene permisos de administración.</div><a className="text-link" href="/">Volver al catálogo</a></main>;
 
   const expiringQrs = config ? [
@@ -267,7 +270,7 @@ export default function AdminPage() {
   return (
     <main className="wrap admin-page">
       <header className="admin-header">
-        <div><a className="brand" href="/">✳ CHAVIX</a><span className="eyebrow"> / ADMINISTRACIÓN</span><h1>Panel de control</h1></div>
+        <div><BrandLogos className="brand-logos-admin" /><span className="eyebrow"> / ADMINISTRACIÓN</span><h1>Panel de control</h1></div>
         <a className="button button-outline" href="/">Ver catálogo</a>
       </header>
       {error && <div className="alert error">{error}</div>}
@@ -329,6 +332,11 @@ export default function AdminPage() {
 
       {tab === "settings" && config && <section className="admin-section">
         <div className="section-heading"><div><span className="eyebrow">PAGOS Y DOCUMENTOS</span><h2>Configuración general</h2></div></div>
+        <div className={`alert ${config.emailNotifications.configured ? "success-alert" : "error"}`} role="status">
+          {config.emailNotifications.configured
+            ? `Alertas por correo activas para ${config.emailNotifications.recipientCount} administrador(es).`
+            : `Falta configurar las alertas por correo: ${config.emailNotifications.missing.join(", ")}. Completa estas variables en Render y reinicia el servicio.`}
+        </div>
         <div className="settings-grid">
           <label>Nombre comercial<input value={config.settings.businessName} onChange={(event) => setConfig({ ...config, settings: { ...config.settings, businessName: event.target.value } })} /></label>
           <label>Teléfono de contacto<input value={config.settings.contactPhone} onChange={(event) => setConfig({ ...config, settings: { ...config.settings, contactPhone: event.target.value } })} /></label>

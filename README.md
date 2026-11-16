@@ -14,6 +14,8 @@ Las colecciones principales son `products`, `promotions`, `users`, `contracts` y
 
 Desde el panel de administración puedes crear códigos de descuento con porcentaje o monto fijo, fechas de vigencia, modalidad, periodos iniciales y productos aplicables. Si marcas todos los productos, el código queda disponible para el catálogo completo. El sistema valida el código y recalcula el precio en el servidor al cotizar y crear el contrato.
 
+En **Catálogo y precios**, usa **+ Agregar sistema** para crear productos y sus planes; activa **Publicado** y guarda el catálogo para mostrarlos. Las alertas por correo se envían a las direcciones de `ADMIN_EMAILS` cuando se crea una contratación, se carga un comprobante o se valida/rechaza un pago. Configura `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` y `SMTP_PASSWORD` en el entorno de despliegue; opcionalmente define `SMTP_FROM`. Para Gmail, usa una contraseña de aplicación, no la contraseña normal de la cuenta.
+
 ## Desarrollo local
 
 1. Instala Node.js 22 y npm.
@@ -64,6 +66,7 @@ Se guardan el trazo (PNG), el nombre y documento del firmante, la fecha y una hu
 - `NEXTAUTH_URL`: URL pública final (por ejemplo, `https://tu-servicio.onrender.com`).
 - `NEXTAUTH_SECRET`: secreto aleatorio largo para firmar sesiones.
 - `ADMIN_EMAILS`: correos Google de administración separados por coma. Los demás usuarios autenticados se registran como clientes.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`: conexión SMTP para las alertas administrativas. Los avisos llegan a los correos de `ADMIN_EMAILS`.
 - `MONGODB_URI`: URI privada de MongoDB Atlas.
 - `MONGODB_DB`: nombre de la base (por ejemplo `CONTRATACIONES_INNOVASOFT`). Si no lo pones ni va en la URI después de `.mongodb.net/`, MongoDB guarda todo en una base llamada `test`.
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: cuenta de Cloudinary para guardar y entregar comprobantes de forma autenticada.
@@ -74,7 +77,7 @@ Agrega en Google Cloud Console el callback de producción `https://tu-servicio.o
 
 1. Sube este proyecto a un repositorio Git propio.
 2. En Render, crea un **Blueprint** a partir del repositorio para leer `render.yaml`.
-3. Completa las variables marcadas como `sync: false` en el panel seguro del servicio.
+3. Completa las variables marcadas como `sync: false` en el panel seguro del servicio, incluidas las credenciales SMTP para habilitar las alertas por correo.
 4. Usa la URL asignada por Render en `NEXTAUTH_URL` y registra el callback correspondiente en Google Cloud.
 5. Desde un entorno con acceso a la base de datos configurada en `MONGODB_URI`, ejecuta `npm run catalog:apply` para cargar los precios y la promoción de los flyers. **Antes de ejecutarlo, confirma que `MONGODB_URI` apunta a la base de datos correcta**: este comando reemplaza precios, planes y textos de los productos, además de actualizar la promoción. Los contratos ya creados no se modifican.
 6. Comprueba el acceso, una cotización, la carga de las dos fotos del carnet, la lectura y aceptación del contrato, y la revisión manual de un comprobante.

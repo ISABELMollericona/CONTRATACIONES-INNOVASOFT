@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "tsx scripts/test-pricing.ts",
+    "test": "tsx scripts/test-pricing.ts && tsx scripts/test-admin-notifications.ts",
     "seed": "tsx --env-file-if-exists=.env.local scripts/seed.ts",
     "catalog:apply": "tsx --env-file-if-exists=.env.local scripts/apply-catalog.ts",
     "qr:amounts": "tsx --env-file-if-exists=.env.local scripts/qr-amounts.ts"
@@ -17,14 +17,16 @@
     "mongoose": "^8.12.1",
     "next": "^15.3.2",
     "next-auth": "^4.24.11",
+    "nodemailer": "^10.6.0",
     "pdfkit": "^0.16.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/pdfkit": "^0.13.9",
     "@types/node": "^22.13.10",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pdfkit": "^0.13.9",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "tsx": "^4.19.3",

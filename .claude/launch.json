@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "chavix-dev", "runtimeExecutable": "cmd", "runtimeArgs": ["/c", "set NEXT_DIST_DIR=.next-local&& npx next dev -p 3001"], "port": 3001 }
+    { "name": "chavix-dev", "runtimeExecutable": "cmd", "runtimeArgs": ["/c", "set NEXT_DIST_DIR=.next-local&& npx next dev -p 3001"], "port": 3001 },
+    { "name": "chavix-dev-localdb", "runtimeExecutable": "cmd", "runtimeArgs": ["/c", "set NEXT_DIST_DIR=.next-local&& set MONGODB_URI=mongodb://127.0.0.1:27017/chavix_local&& set MONGODB_DB=chavix_local&& npx next dev -p 3001"], "port": 3001 }
   ]
 }

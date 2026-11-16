@@ -37,6 +37,21 @@ assert.equal(annual.discount, 0);
 const oneTime = calculateQuote({ price: 2000, billing: "one_time", duration: 1 });
 assert.equal(oneTime.total, 2000);
 
+const fixedDiscountCode = calculateQuote({
+  price: 250,
+  billing: "monthly",
+  duration: 3,
+  promotion: {
+    name: "Código cliente",
+    billing: "monthly",
+    discountType: "fixed",
+    amount: 40,
+    firstPeriods: 2,
+  },
+});
+assert.deepEqual(fixedDiscountCode.periods.map((period) => period.amount), [210, 210, 250]);
+assert.equal(fixedDiscountCode.discount, 80);
+
 // Meses consecutivos con promo solo en el primero
 for (let months = 1; months <= 12; months++) {
   const quote = calculateQuote({ price: 250, billing: "monthly", duration: months, promotion: firstMonthPromotion });

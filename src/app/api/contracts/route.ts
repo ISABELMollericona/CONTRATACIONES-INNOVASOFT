@@ -205,5 +205,14 @@ export async function GET() {
     signerDocument: item.signerDocument?.number ? formatDocument(item.signerDocument) : "",
     hasSignature: Boolean(item.signatureHash),
     hasIdentityPhotos: Boolean(item.identityPhotos?.front?.publicId && item.identityPhotos?.back?.publicId),
+    customerEmail: item.customer.email,
+    customerDocument: formatDocument({ type: item.customer.documentType, number: item.customer.documentNumber, complement: item.customer.documentComplement, issuedIn: item.customer.documentIssuedIn }),
+    businessName: item.customer.businessName ?? "",
+    city: item.customer.city ?? "",
+    duration: item.selection.duration,
+    billing: item.selection.billing,
+    extraBranches: item.selection.extraBranches ?? 0,
+    receiptUploadedAt: item.receipt?.publicId ? item.receipt.uploadedAt : null,
+    updatedAt: item.updatedAt,
   })));
 }

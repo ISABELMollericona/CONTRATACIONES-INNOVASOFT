@@ -12,6 +12,8 @@ Aplicación web en español para publicar sistemas CHAVIX, cotizar precios calcu
 
 Las colecciones principales son `products`, `promotions`, `users`, `contracts` y `settings`. Cada contratación conserva su precio, promoción, calendario, condiciones aceptadas, firmante y hash SHA-256 como una copia inmutable de la oferta al crearla.
 
+Desde el panel de administración puedes crear códigos de descuento con porcentaje o monto fijo, fechas de vigencia, modalidad, periodos iniciales y productos aplicables. Si marcas todos los productos, el código queda disponible para el catálogo completo. El sistema valida el código y recalcula el precio en el servidor al cotizar y crear el contrato.
+
 ## Desarrollo local
 
 1. Instala Node.js 22 y npm.
@@ -63,6 +65,7 @@ Se guardan el trazo (PNG), el nombre y documento del firmante, la fecha y una hu
 - `NEXTAUTH_SECRET`: secreto aleatorio largo para firmar sesiones.
 - `ADMIN_EMAILS`: correos Google de administración separados por coma. Los demás usuarios autenticados se registran como clientes.
 - `MONGODB_URI`: URI privada de MongoDB Atlas.
+- `MONGODB_DB`: nombre de la base (por ejemplo `CONTRATACIONES_INNOVASOFT`). Si no lo pones ni va en la URI después de `.mongodb.net/`, MongoDB guarda todo en una base llamada `test`.
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: cuenta de Cloudinary para guardar y entregar comprobantes de forma autenticada.
 
 Agrega en Google Cloud Console el callback de producción `https://tu-servicio.onrender.com/api/auth/callback/google`. No incluyas secretos en el repositorio ni los pegues en el chat.

@@ -14,11 +14,13 @@ const cache = global.mongooseCache ?? { conn: null, promise: null };
 global.mongooseCache = cache;
 
 export async function connectDb() {
-  const uri = process.env.MONGODB_URI;
+  const uri = process.env.MONGODB_URI?.trim();
   if (!uri) throw new Error("Missing MONGODB_URI environment variable.");
+  // Nombre de la base. Si no se indica aquí ni en la URI (…mongodb.net/<base>), MongoDB usa "test".
+  const dbName = process.env.MONGODB_DB?.trim() || undefined;
   if (cache.conn) return cache.conn;
   if (!cache.promise) {
-    cache.promise = mongoose.connect(uri).catch((error: unknown) => {
+    cache.promise = mongoose.connect(uri, { dbName }).catch((error: unknown) => {
       cache.promise = null;
       throw error;
     });

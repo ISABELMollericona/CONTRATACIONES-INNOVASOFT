@@ -63,15 +63,57 @@ const configSchema = z.object({
     startsAt: z.string().datetime(),
     endsAt: z.string().datetime(),
   }),
+  discountCodes: z.array(z.object({
+    id: z.string().regex(/^[a-f\d]{24}$/i).optional(),
+    name: z.string().trim().min(1).max(100),
+    description: z.string().trim().max(300).default(""),
+    productSlugs: z.array(z.string().regex(/^[a-z0-9-]+$/)).max(100),
+    billing: z.enum(["monthly", "annual", "one_time"]),
+    discountType: z.enum(["percent", "fixed"]),
+    amount: z.number().positive().max(10000000),
+    firstPeriods: z.number().int().min(1).max(120),
+    code: z.string().trim().min(1).max(40).transform((value) => value.toUpperCase()).pipe(z.string().regex(/^[A-Z0-9_-]+$/)),
+    startsAt: z.string().datetime(),
+    endsAt: z.string().datetime(),
+    active: z.boolean(),
+  })).max(100).optional(),
+}).superRefine((config, context) => {
+  const codes = config.discountCodes ?? [];
+  const seenCodes = new Set<string>();
+  const seenIds = new Set<string>();
+  const productSlugs = new Set(config.products.map((product) => product.slug));
+  codes.forEach((code, index) => {
+    if (code.discountType === "percent" && code.amount > 100) {
+      context.addIssue({ code: "custom", path: ["discountCodes", index, "amount"], message: "El porcentaje no puede ser mayor a 100." });
+    }
+    if (new Date(code.endsAt) < new Date(code.startsAt)) {
+      context.addIssue({ code: "custom", path: ["discountCodes", index, "endsAt"], message: "La fecha de fin debe ser posterior al inicio." });
+    }
+    if (seenCodes.has(code.code)) {
+      context.addIssue({ code: "custom", path: ["discountCodes", index, "code"], message: "Cada código debe ser único." });
+    }
+    seenCodes.add(code.code);
+    if (code.id && seenIds.has(code.id)) {
+      context.addIssue({ code: "custom", path: ["discountCodes", index, "id"], message: "La promoción está duplicada." });
+    }
+    if (code.id) seenIds.add(code.id);
+    if (code.productSlugs.some((slug) => !productSlugs.has(slug))) {
+      context.addIssue({ code: "custom", path: ["discountCodes", index, "productSlugs"], message: "Selecciona productos existentes." });
+    }
+    if (new Set(code.productSlugs).size !== code.productSlugs.length) {
+      context.addIssue({ code: "custom", path: ["discountCodes", index, "productSlugs"], message: "No repitas productos." });
+    }
+  });
 });
 
 export async function GET() {
   if (!await getAdminSession()) return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   await connectDb();
-  const [products, settings, promotion] = await Promise.all([
+  const [products, settings, promotion, discountCodes] = await Promise.all([
     Product.find({}).sort({ name: 1 }).lean(),
     Settings.findOne({ key: "main" }).lean(),
-    Promotion.findOne({ name: "Primer mes al 50%" }).lean(),
+    Promotion.findOne({ name: "Primer mes al 50%", code: "" }).lean(),
+    Promotion.find({ code: { $exists: true, $ne: "" } }).sort({ name: 1 }).lean(),
   ]);
   return NextResponse.json({
     products: products.map((product) => ({
@@ -118,6 +160,20 @@ export async function GET() {
       startsAt: new Date(promotion.startsAt).toISOString(),
       endsAt: new Date(promotion.endsAt).toISOString(),
     } : null,
+    discountCodes: discountCodes.map((item) => ({
+      id: String(item._id),
+      name: item.name,
+      description: item.description,
+      productSlugs: item.productSlugs,
+      billing: item.billing,
+      discountType: item.discountType,
+      amount: item.amount,
+      firstPeriods: item.firstPeriods,
+      code: item.code,
+      startsAt: new Date(item.startsAt).toISOString(),
+      endsAt: new Date(item.endsAt).toISOString(),
+      active: item.active,
+    })),
   });
 }
 
@@ -130,7 +186,14 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "La fecha de fin de la promoción debe ser posterior al inicio." }, { status: 400 });
   }
   await connectDb();
-  const { settings, products, promotion } = parsed.data;
+  const { settings, products, promotion, discountCodes } = parsed.data;
+  const existingCodes = discountCodes
+    ? await Promotion.find({ code: { $exists: true, $ne: "" } }).select("_id").lean()
+    : [];
+  const existingIds = new Set(existingCodes.map((item) => String(item._id)));
+  if (discountCodes?.some((item) => item.id && !existingIds.has(item.id))) {
+    return NextResponse.json({ error: "No se pudo identificar uno de los códigos de descuento." }, { status: 400 });
+  }
   await Promise.all([
     Settings.findOneAndUpdate({ key: "main" }, { $set: settings }, { upsert: true, new: true, setDefaultsOnInsert: true }),
     ...products.map((product) => Product.findOneAndUpdate(
@@ -166,10 +229,42 @@ export async function PUT(request: Request) {
       { upsert: true, new: true, runValidators: true },
     )),
     Promotion.findOneAndUpdate(
-      { name: "Primer mes al 50%" },
+      { name: "Primer mes al 50%", code: "" },
       { $set: { active: promotion.active, startsAt: new Date(promotion.startsAt), endsAt: new Date(promotion.endsAt) } },
       { new: true },
     ),
   ]);
+  if (discountCodes) {
+    const codeValues = (item: (typeof discountCodes)[number]) => ({
+      name: item.name,
+      description: item.description,
+      productSlugs: item.productSlugs,
+      billing: item.billing,
+      discountType: item.discountType,
+      amount: item.amount,
+      firstPeriods: item.firstPeriods,
+      code: item.code,
+      startsAt: new Date(item.startsAt),
+      endsAt: new Date(item.endsAt),
+      active: item.active,
+    });
+    await Promise.all(discountCodes.filter((item) => item.id).map((item) => Promotion.updateOne(
+      { _id: item.id, code: { $exists: true, $ne: "" } },
+      { $set: codeValues(item) },
+      { runValidators: true },
+    )));
+    const createdCodes = discountCodes.filter((item) => !item.id);
+    const inserted = createdCodes.length
+      ? await Promotion.insertMany(createdCodes.map(codeValues))
+      : [];
+    const retainedIds = [
+      ...discountCodes.filter((item) => item.id).map((item) => item.id),
+      ...inserted.map((item) => String(item._id)),
+    ];
+    await Promotion.deleteMany({
+      code: { $exists: true, $ne: "" },
+      _id: { $nin: retainedIds },
+    });
+  }
   return NextResponse.json({ saved: true });
 }

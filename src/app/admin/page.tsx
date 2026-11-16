@@ -2,6 +2,7 @@
 
 import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { ContractsBoard, type BoardContract } from "@/app/admin/contracts-board";
 import { QrImageEditor } from "@/app/admin/qr-image-editor";
 import { qrExpiryStatus } from "@/lib/qr-expiry";
 
@@ -32,6 +33,20 @@ type AdminProduct = {
   includes: string;
   plans: AdminPlan[];
 };
+type AdminDiscountCode = {
+  id?: string;
+  name: string;
+  description: string;
+  productSlugs: string[];
+  billing: AdminPlan["billing"];
+  discountType: "percent" | "fixed";
+  amount: number;
+  firstPeriods: number;
+  code: string;
+  startsAt: string;
+  endsAt: string;
+  active: boolean;
+};
 type Config = {
   products: AdminProduct[];
   settings: {
@@ -48,25 +63,9 @@ type Config = {
     qrByAmount: { amount: number; imageUrl: string; validUntil: string }[];
   };
   promotion: { active: boolean; startsAt: string; endsAt: string } | null;
+  discountCodes: AdminDiscountCode[];
 };
-type AdminContract = {
-  id: string;
-  code: string;
-  productName: string;
-  total: number;
-  status: string;
-  paymentStatus: string;
-  createdAt: string;
-  customerName: string;
-  signerName: string;
-  signerDocument: string;
-  hasSignature: boolean;
-  hasIdentityPhotos: boolean;
-  customerPhone: string;
-  planName: string;
-  mode: string;
-  siatOption: "" | "with" | "without";
-};
+type AdminContract = BoardContract;
 
 /** Convierte ISO (UTC) al formato local que espera <input type="datetime-local">. */
 function toLocalInput(iso: string) {
@@ -76,15 +75,6 @@ function toLocalInput(iso: string) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
-const statusLabels: Record<string, string> = {
-  unpaid: "Sin pago",
-  pending_review: "Por revisar",
-  validated: "Validado",
-  rejected: "Rechazado",
-  pending_payment: "Pendiente de pago",
-  active: "Activo",
-  cancelled: "Cancelado",
-};
 
 const blankSettings: Config["settings"] = {
   businessName: "CHAVIX",
@@ -109,6 +99,19 @@ export default function AdminPage() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [qrClock, setQrClock] = useState(() => Date.now());
+  const [tab, setTab] = useState<"contracts" | "catalog" | "settings">("contracts");
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function refresh() {
+    setRefreshing(true);
+    try {
+      await load();
+    } catch (refreshError) {
+      setError(refreshError instanceof Error ? refreshError.message : "No se pudo actualizar.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   async function load() {
     const [configResponse, contractsResponse] = await Promise.all([
@@ -123,6 +126,7 @@ export default function AdminPage() {
       products: configBody.products,
       settings: { ...blankSettings, ...configBody.settings },
       promotion: configBody.promotion,
+      discountCodes: configBody.discountCodes ?? [],
     });
     setContracts(contractBody);
   }
@@ -162,6 +166,45 @@ export default function AdminPage() {
         qrByAmount: config.settings.qrByAmount.map((item, rowIndex) => rowIndex === index ? { ...item, ...patch } : item),
       },
     });
+  }
+
+  function updateDiscountCode(index: number, patch: Partial<AdminDiscountCode>) {
+    if (!config) return;
+    setConfig({
+      ...config,
+      discountCodes: config.discountCodes.map((item, rowIndex) => rowIndex === index ? { ...item, ...patch } : item),
+    });
+  }
+
+  function addDiscountCode() {
+    if (!config) return;
+    const now = new Date();
+    setConfig({
+      ...config,
+      discountCodes: [...config.discountCodes, {
+        name: "Nuevo descuento",
+        description: "",
+        productSlugs: [],
+        billing: "monthly",
+        discountType: "percent",
+        amount: 10,
+        firstPeriods: 1,
+        code: "",
+        startsAt: now.toISOString(),
+        endsAt: new Date(now.getTime() + 30 * 86400000).toISOString(),
+        active: false,
+      }],
+    });
+  }
+
+  function toggleDiscountProduct(index: number, slug: string, checked: boolean) {
+    if (!config) return;
+    const code = config.discountCodes[index];
+    const allSlugs = config.products.map((product) => product.slug);
+    const selected = code.productSlugs.length === 0 ? allSlugs : code.productSlugs;
+    const next = checked ? [...selected, slug] : selected.filter((item) => item !== slug);
+    const unique = [...new Set(next)];
+    updateDiscountCode(index, { productSlugs: unique.length === allSlugs.length ? [] : unique });
   }
 
   function addProduct() {
@@ -212,27 +255,6 @@ export default function AdminPage() {
     }
   }
 
-  async function decidePayment(id: string, decision: "validate" | "reject") {
-    const note = decision === "reject" ? window.prompt("Motivo de rechazo (opcional):") ?? "" : "";
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch(`/api/admin/contracts/${id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision, note }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "No se pudo procesar el pago.");
-      await load();
-      setNotice(decision === "validate" ? "Pago validado y contrato activado." : "Pago rechazado; el cliente puede enviar otro comprobante.");
-    } catch (decisionError) {
-      setError(decisionError instanceof Error ? decisionError.message : "Ocurrió un error.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (status === "loading") return <main className="wrap admin-page"><div className="empty">Cargando...</div></main>;
   if (!session?.user) return <main className="wrap admin-page"><div className="empty"><h1>Panel CHAVIX</h1><p>Inicia sesión con la cuenta Google autorizada como administradora.</p><button className="button" onClick={() => signIn("google")}>Entrar con Google</button></div></main>;
   if (session.user.role !== "admin") return <main className="wrap admin-page"><div className="alert error">Tu cuenta no tiene permisos de administración.</div><a className="text-link" href="/">Volver al catálogo</a></main>;
@@ -251,24 +273,15 @@ export default function AdminPage() {
       {error && <div className="alert error">{error}</div>}
       {notice && <div className="alert success-alert">{notice}</div>}
 
-      <section className="admin-section">
-        <div className="section-heading"><div><span className="eyebrow">OPERACIÓN</span><h2>Pagos pendientes</h2></div><span className="count-pill">{contracts.filter((item) => item.paymentStatus === "pending_review").length} por revisar</span></div>
-        <div className="admin-table">
-          <div className="admin-table-head"><span>Contrato</span><span>Producto / firmante</span><span>Total</span><span>Estado</span><span>Acción</span></div>
-          {contracts.map((item) => (
-            <div className="admin-table-row" key={item.id}>
-              <span><b>{item.code}</b><small>{new Date(item.createdAt).toLocaleDateString("es-BO")}</small><a className="text-link pdf-link" href={`/api/contracts/${item.id}/pdf`}>PDF firmado</a></span>
-              <span>{item.productName} · {item.planName}<small>{item.siatOption ? `Facturación ${item.siatOption === "with" ? "con" : "sin"} SIAT` : "SIAT no especificado (contrato anterior)"} · {item.customerPhone}</small><small>{item.signerName || item.customerName}{item.signerDocument ? ` · ${item.signerDocument}` : ""}{item.hasSignature ? " · ✍ firmado" : ""}</small>{item.hasIdentityPhotos && <small><a className="text-link pdf-link" href={`/api/admin/contracts/${item.id}/identity/front`} target="_blank" rel="noreferrer">Carnet anverso</a> · <a className="text-link pdf-link" href={`/api/admin/contracts/${item.id}/identity/back`} target="_blank" rel="noreferrer">reverso</a></small>}</span>
-              <span>Bs {item.total.toLocaleString("es-BO")}</span>
-              <span><em className={`status status-${item.paymentStatus}`}>{statusLabels[item.paymentStatus] ?? item.paymentStatus}</em></span>
-              <span>{item.paymentStatus === "pending_review" ? <div className="row-actions"><a href={`/api/admin/contracts/${item.id}/receipt`} target="_blank" rel="noreferrer">Ver comprobante</a><button disabled={busy} onClick={() => decidePayment(item.id, "validate")}>Validar</button><button className="danger-link" disabled={busy} onClick={() => decidePayment(item.id, "reject")}>Rechazar</button></div> : statusLabels[item.status] ?? item.status}</span>
-            </div>
-          ))}
-          {contracts.length === 0 && <div className="empty compact">No hay contrataciones todavía.</div>}
-        </div>
-      </section>
+      <nav className="admin-tabs" role="tablist">
+        <button type="button" role="tab" aria-selected={tab === "contracts"} className={tab === "contracts" ? "on" : ""} onClick={() => setTab("contracts")}>Contrataciones{contracts.filter((item) => item.paymentStatus === "pending_review").length > 0 && <em>{contracts.filter((item) => item.paymentStatus === "pending_review").length}</em>}</button>
+        <button type="button" role="tab" aria-selected={tab === "catalog"} className={tab === "catalog" ? "on" : ""} onClick={() => setTab("catalog")}>Catálogo y precios</button>
+        <button type="button" role="tab" aria-selected={tab === "settings"} className={tab === "settings" ? "on" : ""} onClick={() => setTab("settings")}>Pagos, QR y promoción{expiringQrs.length > 0 && <em className="warn">!</em>}</button>
+      </nav>
 
-      {config && <section className="admin-section">
+      {tab === "contracts" && <ContractsBoard contracts={contracts} onRefresh={refresh} refreshing={refreshing} />}
+
+      {tab === "catalog" && config && <section className="admin-section">
         <div className="section-heading"><div><span className="eyebrow">CATÁLOGO COMERCIAL</span><h2>Sistemas, modalidades y precios</h2></div><button className="button button-outline" onClick={addProduct}>+ Agregar sistema</button></div>
         <div className="admin-products">
           {config.products.map((product, productIndex) => (
@@ -311,9 +324,10 @@ export default function AdminPage() {
             </article>
           ))}
         </div>
+        <div className="save-row"><p className="muted">Los cambios de precios no alteran las contrataciones ya creadas.</p><button className="button" disabled={busy} onClick={saveConfig}>{busy ? "Guardando..." : "Guardar catálogo"}</button></div>
       </section>}
 
-      {config && <section className="admin-section">
+      {tab === "settings" && config && <section className="admin-section">
         <div className="section-heading"><div><span className="eyebrow">PAGOS Y DOCUMENTOS</span><h2>Configuración general</h2></div></div>
         <div className="settings-grid">
           <label>Nombre comercial<input value={config.settings.businessName} onChange={(event) => setConfig({ ...config, settings: { ...config.settings, businessName: event.target.value } })} /></label>
@@ -358,6 +372,42 @@ export default function AdminPage() {
             <label>Fin<input type="datetime-local" value={toLocalInput(config.promotion.endsAt)} onChange={(event) => event.target.value && setConfig({ ...config, promotion: config.promotion ? { ...config.promotion, endsAt: new Date(event.target.value).toISOString() } : null })} /></label>
           </div>
         </div>}
+        <div className="promotion-editor">
+        <div className="section-heading">
+          <div><h3>Códigos de descuento</h3><p className="muted">Crea códigos, define su descuento y elige los productos donde se aceptarán. Si no seleccionas productos, aplica a todos.</p></div>
+          <button type="button" className="button button-outline" onClick={addDiscountCode}>+ Crear código</button>
+        </div>
+        {config.discountCodes.map((item, index) => {
+          const allProducts = item.productSlugs.length === 0;
+          return <article className="discount-code-editor" key={item.id ?? `new-${index}`}>
+            <div className="admin-product-heading">
+              <h4>{item.name || "Nuevo descuento"}</h4>
+              <label className="switch-label"><input type="checkbox" checked={item.active} onChange={(event) => updateDiscountCode(index, { active: event.target.checked })} /> Activo</label>
+            </div>
+            <div className="settings-grid">
+              <label>Nombre del descuento<input value={item.name} onChange={(event) => updateDiscountCode(index, { name: event.target.value })} /></label>
+              <label>Código para el cliente<input value={item.code} autoCapitalize="characters" onChange={(event) => updateDiscountCode(index, { code: event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, "") })} placeholder="EJEMPLO10" /></label>
+              <label>Tipo de descuento<select value={item.discountType} onChange={(event) => updateDiscountCode(index, { discountType: event.target.value as AdminDiscountCode["discountType"] })}><option value="percent">Porcentaje (%)</option><option value="fixed">Monto fijo (Bs)</option></select></label>
+              <label>{item.discountType === "percent" ? "Porcentaje" : "Monto (Bs)"}<input type="number" min="0.01" max={item.discountType === "percent" ? 100 : 10000000} step="0.01" value={item.amount} onChange={(event) => updateDiscountCode(index, { amount: Number(event.target.value) })} /></label>
+              <label>Tipo de plan<select value={item.billing} onChange={(event) => updateDiscountCode(index, { billing: event.target.value as AdminPlan["billing"] })}><option value="monthly">Mensual</option><option value="annual">Anual</option><option value="one_time">Pago único</option></select></label>
+              <label>Primeros periodos con descuento<input type="number" min="1" max="120" value={item.firstPeriods} onChange={(event) => updateDiscountCode(index, { firstPeriods: Math.max(1, Number(event.target.value)) })} /></label>
+              <label className="wide">Descripción (opcional)<input value={item.description} onChange={(event) => updateDiscountCode(index, { description: event.target.value })} /></label>
+              <label>Inicio<input type="datetime-local" value={toLocalInput(item.startsAt)} onChange={(event) => event.target.value && updateDiscountCode(index, { startsAt: new Date(event.target.value).toISOString() })} /></label>
+              <label>Fin<input type="datetime-local" value={toLocalInput(item.endsAt)} onChange={(event) => event.target.value && updateDiscountCode(index, { endsAt: new Date(event.target.value).toISOString() })} /></label>
+            </div>
+            <fieldset className="discount-product-options">
+              <legend>Productos aplicables</legend>
+              <p className="muted">{allProducts ? "Aplica a todos. Desmarca los productos excluidos." : "Selecciona los productos donde se aceptará este código."}</p>
+              <div className="discount-product-list">{config.products.map((product) => {
+                const checked = allProducts || item.productSlugs.includes(product.slug);
+                return <label className="switch-label" key={product.slug}><input type="checkbox" checked={checked} disabled={checked && !allProducts && item.productSlugs.length === 1} onChange={(event) => toggleDiscountProduct(index, product.slug, event.target.checked)} /> {product.name}</label>;
+              })}</div>
+            </fieldset>
+            <button type="button" className="danger-link" onClick={() => setConfig({ ...config, discountCodes: config.discountCodes.filter((_, rowIndex) => rowIndex !== index) })}>Eliminar código</button>
+          </article>;
+        })}
+        {config.discountCodes.length === 0 && <p className="muted">Todavía no hay códigos de descuento.</p>}
+        </div>
         <div className="save-row"><p className="muted">Los cambios de precios no alteran las contrataciones ya creadas.</p><button className="button" disabled={busy} onClick={saveConfig}>{busy ? "Guardando..." : "Guardar configuración"}</button></div>
       </section>}
     </main>

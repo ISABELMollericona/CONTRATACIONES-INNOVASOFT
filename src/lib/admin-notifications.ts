@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import { SMTPClient } from "emailjs";
 
 export type AdminNotificationEvent = "new_contract" | "receipt_uploaded" | "payment_validated" | "payment_rejected";
 
@@ -61,14 +61,14 @@ export async function notifyAdministrators(
     const port = Number(process.env.SMTP_PORT?.trim() || "587");
     if (!host || !username || !password) throw new Error("Faltan datos de conexión SMTP.");
     const recipients = adminRecipients();
-    const transporter = nodemailer.createTransport({
+    const client = new SMTPClient({
+      user: username,
+      password,
       host,
       port,
-      secure: port === 465,
-      auth: { user: username, pass: password },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 20000,
+      ssl: port === 465,
+      tls: port === 587,
+      timeout: 20000,
     });
     const siteUrl = process.env.NEXTAUTH_URL?.replace(/\/+$/, "");
     const contractUrl = siteUrl ? `${siteUrl}/admin/contracts/${contract.id}` : "";
@@ -86,12 +86,16 @@ export async function notifyAdministrators(
       contractUrl ? `Ver contratación: ${contractUrl}` : "",
     ].filter(Boolean);
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM?.trim() || username,
-      to: recipients,
-      subject: `${eventLabels[event]} · ${contract.code}`,
-      text: lines.join("\n"),
-    });
+    try {
+      await client.sendAsync({
+        from: process.env.SMTP_FROM?.trim() || username,
+        to: recipients,
+        subject: `${eventLabels[event]} · ${contract.code}`,
+        text: lines.join("\n"),
+      });
+    } finally {
+      client.smtp.close();
+    }
     return { sent: true };
   } catch (error) {
     console.error(`No se pudo enviar la alerta de correo "${event}" para ${contract.code}.`, error);

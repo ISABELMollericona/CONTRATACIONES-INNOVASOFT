@@ -150,6 +150,7 @@ textarea { resize: vertical; }
 .admin-products { display: grid; gap: 14px; }
 .admin-product { border: 1px solid #303937; border-radius: 15px; background: #121615; padding: 20px; }
 .admin-product-heading { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+.admin-product-actions { display: flex; align-items: center; gap: 12px; }
 .admin-product-heading h3 { font: 700 19px "Manrope", sans-serif; margin: 5px 0; }
 .switch-label { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .switch-label input { width: 16px; height: 16px; min-height: auto; accent-color: var(--mint-dark); }
@@ -307,8 +308,17 @@ main { overflow-x: clip; }
 .qr-expiry-alert { border-color: #786334; background: #282213; color: #f0dfab; }
 .qr-expiry-alert ul { margin: 8px 0 0; padding-left: 20px; }
 .qr-expiry-alert li + li { margin-top: 5px; }
+.qr-amount-suggestions { margin: 18px 0; padding: 14px; border: 1px solid #303937; border-radius: 10px; background: #151a19; }
+.qr-amount-suggestions h4 { margin: 0 0 6px; }
+.qr-amount-suggestions > .muted { margin: 0 0 12px; }
+.qr-suggestion-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 8px; }
+.qr-suggestion-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px; border: 1px solid #303937; border-radius: 8px; }
+.qr-suggestion-row > div { display: grid; gap: 4px; min-width: 0; }
+.qr-suggestion-row small { color: #9eaaa7; font-size: 11px; }
+.qr-suggestion-row button { flex: 0 0 auto; }
 @media (max-width: 760px) {
   .qr-row { grid-template-columns: 1fr; gap: 0; }
+  .qr-suggestion-row { align-items: flex-start; flex-direction: column; }
 }
 @media (min-width: 1000px) { .plan-editor { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 
@@ -347,7 +357,7 @@ main { overflow-x: clip; }
 .contract-card.tone-bad { border-left-color: #ff8f7a; }
 .contract-card-main { display: grid; gap: 8px; padding: 16px 16px 12px; color: inherit; }
 .contract-card-main:hover h3 { color: var(--mint); }
-.cc-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cc-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cc-top small { color: #8d9996; font-size: 11px; }
 .contract-card h3 { margin: 2px 0 0; font: 800 18px "Manrope", sans-serif; }
 .cc-sub { margin: 0; color: #9aa6a3; font-size: 12px; }

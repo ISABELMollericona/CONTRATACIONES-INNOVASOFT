@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { money, statusLabels, statusTone, timeAgo, whatsappLink } from "@/app/admin/labels";
+import { money, paymentLabels, statusLabels, statusTone, timeAgo, whatsappLink } from "@/app/admin/labels";
 
 export type BoardContract = {
   id: string;
@@ -125,7 +125,8 @@ export function ContractsBoard({ contracts, onRefresh, refreshing }: { contracts
             <article key={item.id} className={`contract-card tone-${tone}`}>
               <a className="contract-card-main" href={`/admin/contracts/${item.id}`}>
                 <div className="cc-top">
-                  <span className={`pill pill-${tone}`}>{item.paymentStatus === "pending_review" ? "Comprobante por revisar" : statusLabels[item.status] ?? item.status}</span>
+                  <span className={`pill pill-${tone}`}>{statusLabels[item.status] ?? item.status}</span>
+                  <span className="pill">{paymentLabels[item.paymentStatus] ?? item.paymentStatus}</span>
                   <small>{timeAgo(item.paymentStatus === "pending_review" ? item.receiptUploadedAt ?? item.createdAt : item.createdAt, now)}</small>
                 </div>
                 <h3>{item.customerName}</h3>

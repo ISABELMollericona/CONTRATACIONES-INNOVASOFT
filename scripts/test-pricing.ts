@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { calculateQuote } from "../src/lib/pricing";
+import { suggestQrAmounts } from "../src/lib/qr-amount-suggestions";
 import { qrExpiryStatus, qrIsExpired } from "../src/lib/qr-expiry";
 
 const firstMonthPromotion = {
@@ -76,5 +77,46 @@ assert.equal(qrExpiryStatus("2026-11-12", qrCheckDate), "expired");
 assert.equal(qrIsExpired("2026-11-12", qrCheckDate), true);
 assert.equal(qrExpiryStatus("", qrCheckDate), "active");
 assert.equal(qrExpiryStatus("2026-11-12", new Date("2026-11-13T02:00:00Z")), "expiring");
+
+const qrSuggestions = suggestQrAmounts([
+  {
+    slug: "farmacia",
+    name: "Farmacia",
+    active: true,
+    plans: [{
+      name: "Mensual",
+      mode: "Unisucursal",
+      billing: "monthly",
+      price: 250,
+      durationOptions: [1, 2, 2],
+      enabled: true,
+    }],
+  },
+  {
+    slug: "inactivo",
+    name: "Producto inactivo",
+    active: false,
+    plans: [{
+      name: "Mensual",
+      mode: "Unisucursal",
+      billing: "monthly",
+      price: 100,
+      durationOptions: [1],
+      enabled: true,
+    }],
+  },
+], [{
+  name: "Primer mes al 50%",
+  productSlugs: ["farmacia"],
+  billing: "monthly",
+  discountType: "percent",
+  amount: 50,
+  firstPeriods: 1,
+  startsAt: "2026-11-12T00:00:00-04:00",
+  endsAt: "2026-11-30T23:59:59-04:00",
+  active: true,
+}], new Date("2026-11-16T12:00:00-04:00"));
+assert.deepEqual(qrSuggestions.map(({ amount }) => amount), [125, 375]);
+assert.equal(qrSuggestions[0].examples[0], "Farmacia · Unisucursal · Mensual · 1 mes · Primer mes al 50%");
 
 console.log("Pricing checks passed.");

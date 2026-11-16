@@ -1,11 +1,12 @@
 "use client";
 
 import { signIn, useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BrandLogos } from "@/app/brand-logos";
 import { ContractsBoard, type BoardContract } from "@/app/admin/contracts-board";
 import { QrImageEditor } from "@/app/admin/qr-image-editor";
 import { qrExpiryStatus } from "@/lib/qr-expiry";
+import { suggestQrAmounts } from "@/lib/qr-amount-suggestions";
 
 type AdminPlan = {
   id?: string;
@@ -26,6 +27,8 @@ type AdminPlan = {
 };
 type AdminProduct = {
   slug: string;
+  originalSlug?: string;
+  slugHistory?: string[];
   name: string;
   description: string;
   features: string[];
@@ -48,6 +51,17 @@ type AdminDiscountCode = {
   endsAt: string;
   active: boolean;
 };
+type AdminPromotion = {
+  name: string;
+  active: boolean;
+  startsAt: string;
+  endsAt: string;
+  productSlugs: string[];
+  billing: AdminPlan["billing"];
+  discountType: "percent" | "fixed";
+  amount: number;
+  firstPeriods: number;
+};
 type Config = {
   products: AdminProduct[];
   emailNotifications: { configured: boolean; recipientCount: number; missing: string[] };
@@ -64,7 +78,7 @@ type Config = {
     contractTerms: string;
     qrByAmount: { amount: number; imageUrl: string; validUntil: string }[];
   };
-  promotion: { active: boolean; startsAt: string; endsAt: string } | null;
+  promotion: AdminPromotion | null;
   discountCodes: AdminDiscountCode[];
 };
 type AdminContract = BoardContract;
@@ -103,6 +117,7 @@ export default function AdminPage() {
   const [qrClock, setQrClock] = useState(() => Date.now());
   const [tab, setTab] = useState<"contracts" | "catalog" | "settings">("contracts");
   const [refreshing, setRefreshing] = useState(false);
+  const [deletedProductSlugs, setDeletedProductSlugs] = useState<string[]>([]);
 
   async function refresh() {
     setRefreshing(true);
@@ -125,12 +140,17 @@ export default function AdminPage() {
     if (!configResponse.ok) throw new Error(configBody.error ?? "No se pudo cargar la configuración.");
     if (!contractsResponse.ok) throw new Error(contractBody.error ?? "No se pudieron cargar las contrataciones.");
     setConfig({
-      products: configBody.products,
+      products: configBody.products.map((product: AdminProduct) => ({
+        ...product,
+        originalSlug: product.slug,
+        slugHistory: [product.slug],
+      })),
       emailNotifications: configBody.emailNotifications,
       settings: { ...blankSettings, ...configBody.settings },
       promotion: configBody.promotion,
       discountCodes: configBody.discountCodes ?? [],
     });
+    setDeletedProductSlugs([]);
     setContracts(contractBody);
   }
 
@@ -144,11 +164,73 @@ export default function AdminPage() {
     return () => window.clearInterval(timer);
   }, []);
 
+  const qrAmountSuggestions = useMemo(
+    () => config ? suggestQrAmounts(config.products, config.promotion ? [config.promotion] : [], new Date(qrClock)) : [],
+    [config?.products, config?.promotion, qrClock],
+  );
+
   function updateProduct(index: number, patch: Partial<AdminProduct>) {
     if (!config) return;
     const products = [...config.products];
     products[index] = { ...products[index], ...patch };
     setConfig({ ...config, products });
+  }
+
+  function updateProductSlug(index: number, slug: string) {
+    if (!config) return;
+    const product = config.products[index];
+    const knownSlugs = new Set([
+      ...(product.slugHistory ?? []),
+      product.slug,
+      product.originalSlug,
+    ].filter((value): value is string => Boolean(value)));
+    const products = [...config.products];
+    products[index] = {
+      ...product,
+      slug,
+      slugHistory: [...new Set([...knownSlugs, ...(slug ? [slug] : [])])],
+    };
+    const discountCodes = slug
+      ? config.discountCodes.map((code) => ({
+          ...code,
+          productSlugs: [...new Set(code.productSlugs.map((item) => knownSlugs.has(item) ? slug : item))],
+        }))
+      : config.discountCodes;
+    const promotion = slug && config.promotion
+      ? {
+          ...config.promotion,
+          productSlugs: [...new Set(config.promotion.productSlugs.map((item) => knownSlugs.has(item) ? slug : item))],
+        }
+      : config.promotion;
+    setConfig({ ...config, products, discountCodes, promotion });
+  }
+
+  function removeProduct(index: number) {
+    if (!config) return;
+    const product = config.products[index];
+    const knownSlugs = new Set([
+      ...(product.slugHistory ?? []),
+      product.slug,
+      product.originalSlug,
+    ].filter((value): value is string => Boolean(value)));
+    if (config.promotion?.active && config.promotion.productSlugs.some((slug) => knownSlugs.has(slug))) {
+      setError("Desactiva la promoción del primer mes antes de eliminar el sistema asociado.");
+      return;
+    }
+    if (config.discountCodes.some((code) => code.productSlugs.some((slug) => knownSlugs.has(slug)))) {
+      setError("Antes de eliminar este sistema, elimina o actualiza los códigos de descuento que lo incluyen.");
+      return;
+    }
+    if (!window.confirm(`¿Eliminar “${product.name}” del catálogo? Las contrataciones ya creadas se conservarán.`)) return;
+    setError("");
+    const originalSlug = product.originalSlug;
+    setConfig({
+      ...config,
+      products: config.products.filter((_, productIndex) => productIndex !== index),
+    });
+    if (originalSlug) {
+      setDeletedProductSlugs((slugs) => [...new Set([...slugs, originalSlug])]);
+    }
   }
 
   function updatePlan(productIndex: number, planIndex: number, patch: Partial<AdminPlan>) {
@@ -167,6 +249,17 @@ export default function AdminPage() {
       settings: {
         ...config.settings,
         qrByAmount: config.settings.qrByAmount.map((item, rowIndex) => rowIndex === index ? { ...item, ...patch } : item),
+      },
+    });
+  }
+
+  function addSuggestedQr(amount: number) {
+    if (!config || config.settings.qrByAmount.some((item) => Math.abs(item.amount - amount) < 0.005)) return;
+    setConfig({
+      ...config,
+      settings: {
+        ...config.settings,
+        qrByAmount: [...config.settings.qrByAmount, { amount, imageUrl: "", validUntil: "" }],
       },
     });
   }
@@ -212,12 +305,17 @@ export default function AdminPage() {
 
   function addProduct() {
     if (!config) return;
-    const number = config.products.length + 1;
+    let number = 1;
+    while (
+      config.products.some((product) => product.slug === `nuevo-sistema-${number}`)
+      || deletedProductSlugs.includes(`nuevo-sistema-${number}`)
+    ) number += 1;
     const slug = `nuevo-sistema-${number}`;
     setConfig({
       ...config,
       products: [...config.products, {
         slug,
+        slugHistory: [slug],
         name: `Nuevo sistema ${number}`,
         description: "Describe qué resuelve este sistema.",
         features: ["Nueva característica"],
@@ -240,6 +338,7 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...config,
+          deletedProductSlugs,
           promotion: config.promotion ?? {
             active: false,
             startsAt: new Date().toISOString(),
@@ -288,13 +387,16 @@ export default function AdminPage() {
         <div className="section-heading"><div><span className="eyebrow">CATÁLOGO COMERCIAL</span><h2>Sistemas, modalidades y precios</h2></div><button className="button button-outline" onClick={addProduct}>+ Agregar sistema</button></div>
         <div className="admin-products">
           {config.products.map((product, productIndex) => (
-            <article className="admin-product" key={`${product.slug}-${productIndex}`}>
+            <article className="admin-product" key={product.originalSlug ?? product.slugHistory?.[0] ?? `${product.slug}-${productIndex}`}>
               <div className="admin-product-heading">
                 <div><span className="eyebrow">{product.slug}</span><h3>{product.name}</h3></div>
-                <label className="switch-label"><input type="checkbox" checked={product.active} onChange={(event) => updateProduct(productIndex, { active: event.target.checked })} /> Publicado</label>
+                <div className="admin-product-actions">
+                  <label className="switch-label"><input type="checkbox" checked={product.active} onChange={(event) => updateProduct(productIndex, { active: event.target.checked })} /> Publicado</label>
+                  <button type="button" className="danger-link" onClick={() => removeProduct(productIndex)}>Eliminar sistema</button>
+                </div>
               </div>
               <div className="field-pair">
-                <label>Slug (identificador)<input value={product.slug} readOnly /></label>
+                <label>Slug (identificador)<input value={product.slug} onChange={(event) => updateProductSlug(productIndex, event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} /></label>
                 <label>Nombre del sistema<input value={product.name} onChange={(event) => updateProduct(productIndex, { name: event.target.value })} /></label>
               </div>
               <label>Descripción<textarea value={product.description} onChange={(event) => updateProduct(productIndex, { description: event.target.value })} rows={2} /></label>
@@ -355,6 +457,23 @@ export default function AdminPage() {
         <div className="promotion-editor">
           <h3>QR por monto</h3>
           <p className="muted">Sube el QR y ajusta el recorte cuadrado con zoom y posición. La fecha es opcional; al vencer, ese QR deja de mostrarse. Se avisa en este panel desde 7 días antes.</p>
+          <div className="qr-amount-suggestions" aria-live="polite">
+            <h4>Montos sugeridos desde el catálogo</h4>
+            <p className="muted">Se calculan con los planes publicados y las promociones generales vigentes. No incluyen sucursales extra ni códigos de descuento; esos pagos pueden tener otros montos. Al preparar un monto, aparecerá abajo para que cargues su imagen.</p>
+            {qrAmountSuggestions.length > 0
+              ? <div className="qr-suggestion-list">{qrAmountSuggestions.map((suggestion) => {
+                  const existingQr = config.settings.qrByAmount.find((item) => Math.abs(item.amount - suggestion.amount) < 0.005);
+                  const examples = suggestion.examples.slice(0, 2).join("; ");
+                  const more = suggestion.examples.length > 2 ? ` y ${suggestion.examples.length - 2} más` : "";
+                  return <div className="qr-suggestion-row" key={suggestion.amount}>
+                    <div><strong>Bs {suggestion.amount.toLocaleString("es-BO", { maximumFractionDigits: 2 })}</strong><small>{examples}{more}</small></div>
+                    <button type="button" className="button button-outline button-small" disabled={Boolean(existingQr)} onClick={() => addSuggestedQr(suggestion.amount)}>
+                      {existingQr ? existingQr.imageUrl ? "QR cargado" : "Monto agregado" : "Preparar QR"}
+                    </button>
+                  </div>;
+                })}</div>
+              : <p className="muted">Publica planes con precio para ver sugerencias.</p>}
+          </div>
           {expiringQrs.length > 0 && <div className="alert qr-expiry-alert" role="status">
             <b>Revisa los QR que vencen pronto o ya vencieron:</b>
             <ul>{expiringQrs.map((item) => {

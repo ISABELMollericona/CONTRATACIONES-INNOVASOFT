@@ -86,7 +86,7 @@ La app requiere Node.js 22. Configura la lista de acceso de red de Atlas de acue
 
 ## SEO y buscabilidad
 
-La página publica metadatos en español, enlaces canónicos, datos estructurados y los archivos `/robots.txt` y `/sitemap.xml`. Configura `NEXTAUTH_URL` con la URL pública final del sitio antes de desplegar para que los buscadores reciban las direcciones correctas.
+La página publica metadatos en español, enlaces canónicos, datos estructurados y los archivos `/robots.txt` y `/sitemap.xml`. Configura `NEXTAUTH_URL` con la URL pública final del sitio antes de desplegar para que los buscadores reciban las direcciones correctas. El archivo de verificación HTML de Google debe permanecer en `public/` para que siga disponible en la raíz del sitio.
 
 Para solicitar que aparezca en Google, verifica el dominio en Google Search Console y envía `https://<dominio-publico>/sitemap.xml`; también puedes inspeccionar la página principal y solicitar su indexación. La indexación y la posición dependen de Google y pueden tardar; estos cambios no garantizan una posición específica ni que el sitio aparezca inmediatamente.
 

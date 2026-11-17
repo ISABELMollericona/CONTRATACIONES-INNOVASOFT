@@ -404,6 +404,13 @@ export default function HomePage() {
             </article>
           ))}
         </div>
+        <div className="seo-copy">
+          <h3>Software de gestión para farmacias en Bolivia</h3>
+          <p>CHAVIX Farmacia reúne ventas, facturación electrónica SIAT, inventario por lotes y vencimientos, caja, compras y reportes para ayudarte a administrar tu negocio.</p>
+          <h3>Control para uno o varios locales</h3>
+          <p>Elige una modalidad unisucursal o multisucursal y revisa opciones de pago mensual, anual o único. Consulta las funciones, precios y condiciones antes de solicitar tu cotización en línea.</p>
+          <p>InnovaSoft ofrece los sistemas CHAVIX con atención personalizada en Bolivia. Explora el catálogo para conocer CHAVIX Farmacia y CHAVIX Celular.</p>
+        </div>
       </section>
 
       {selectedProduct && (

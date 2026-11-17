@@ -67,6 +67,9 @@ h1, h2, h3, h4, p { margin-top: 0; }
 .section-heading h2, .bottom-cta h2, .success-panel h2 { font: 800 clamp(26px, 4vw, 38px)/1.12 "Manrope", sans-serif; letter-spacing: -1.3px; margin: 10px 0 0; }
 .section-heading > p { margin: 0 0 3px; color: var(--muted); font-size: 14px; }
 .product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+.seo-copy { max-width: 860px; margin: 38px auto 0; color: var(--muted); font-size: 14px; line-height: 1.75; }
+.seo-copy h3 { margin: 22px 0 8px; color: var(--text); font: 700 19px "Manrope", sans-serif; }
+.seo-copy p { margin: 0 0 12px; }
 .product-card { border: 1px solid #2e3635; border-radius: 20px; padding: 25px; background: linear-gradient(145deg, #171c1b, #111414); transition: border-color .2s, transform .2s; }
 .product-card:hover, .product-card.selected { border-color: #42cbb9; transform: translateY(-2px); }
 .product-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }

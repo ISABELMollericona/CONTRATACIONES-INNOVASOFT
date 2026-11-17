@@ -84,6 +84,12 @@ Agrega en Google Cloud Console el callback de producción `https://tu-servicio.o
 
 La app requiere Node.js 22. Configura la lista de acceso de red de Atlas de acuerdo con la salida de red de Render; usa un usuario de base de datos dedicado y permisos mínimos.
 
+## SEO y buscabilidad
+
+La página publica metadatos en español, enlaces canónicos, datos estructurados y los archivos `/robots.txt` y `/sitemap.xml`. Configura `NEXTAUTH_URL` con la URL pública final del sitio antes de desplegar para que los buscadores reciban las direcciones correctas.
+
+Para solicitar que aparezca en Google, verifica el dominio en Google Search Console y envía `https://<dominio-publico>/sitemap.xml`; también puedes inspeccionar la página principal y solicitar su indexación. La indexación y la posición dependen de Google y pueden tardar; estos cambios no garantizan una posición específica ni que el sitio aparezca inmediatamente.
+
 ## Catálogo y promociones de los flyers
 
 - **Vigencia de Black Friday:** del 12 al 30 de noviembre de 2026, hora de Bolivia (UTC-4).
